@@ -41,7 +41,7 @@ bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 ch
 
 | thing | mikupad | bloppadd |
 |-------|---------|----------|
-| size | 400kB+ | ~15kB |
+| size | 400kB+ | 24.6kB |
 | build required | yes (compile.sh) [[1]] | no |
 | framework | ReactJS [[1]] | none |
 | dependencies | React, build tools | browser |
