@@ -54,7 +54,7 @@ NO
 
 ## License
 
-MIT Public License.
+MIT Public License.  Made with LOCAL LLM ONLY: Qwen27b and GLM5.3-flash.
 
 ## the end
 
