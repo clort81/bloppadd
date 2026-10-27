@@ -1,51 +1,70 @@
-# mikupad
+# bloppadd
 
-**mikupad** is a user-friendly, browser-based interface for interacting with language models. It's built with ReactJS and supports various text generation backends, all within a single HTML file.
+***bloppadd*** is a super simple webpage for talking to llama.cpp.
 
-![image](https://github.com/user-attachments/assets/4c5fa8ff-5926-4a4b-807b-34e4f36a032c)
 
-## Features
+![image](https://github.com)
 
-* **Multiple Backends**: Supports **llama.cpp**, **koboldcpp**, **AI Horde**, and any **OpenAI Compatible** API.
-* **Session Persistence**: Your prompt is automatically saved and restored, allowing you to continue seamlessly across multiple sessions. Import and export sessions for sharing or maintaining backups.
-* **Optional Server**: Can be hosted on a local Node.js server, enabling database access remotely or across your local network.
-* **Persistent Context**:
-  * **Memory**: Seamlessly inject a text of your choice at the beginning of the context.
-  * **Author's Note**: Seamlessly inject a text of your choice at the end of the context, with adjustable depth.
-  * **World Info**: Dynamically include extra information in the context, triggered by specific keywords.
-* **Prediction Undo/Redo**: Easily experiment and refine your generated text with the ability to undo and redo predictions.
-* **Token Probability**: Hover over any token to reveal the top 10 most probable tokens at that point. Click on a probability to regenerate the text from that specific token.
-  * If you're using oobabooga, make sure to use an \_HF sampler for this feature to function properly.
-  * If you're using koboldcpp, token probabilities are only available with Token Streaming disabled.
-* **Logit Bias**: Fine-tune the generation process by adjusting the likelihood bias of specific tokens on-the-fly.
-* **Completion/Chat Modes**:
-  * **Completion**: Have the language model directly continue your prompt.
-  * **Chat**: Mikupad simplifies using instruct models. It automatically adds the right delimiters when you start or stop generating, based on your selected template. This also structures your prompt into messages, making it compatible with the Chat Completions API (for OpenAI-compatible backends).
-* **Themes**: Customize your environment by choosing from a variety of themes.
+It's just one HTML file, see? No building, no installing. Just open and go.
 
-## Getting Started
+Works with llama-server. Type things, get responses back.  Copy and paste to input box, and from output box.  We have browser-native scrollbars.
 
-You can easily run **mikupad** by opening the `mikupad.html` file in your web browser. No additional installation is required. Choose your preferred backend and start generating text!
+## Why this thing? 
 
-```shell
-git clone https://github.com/lmg-anon/mikupad.git
-cd mikupad
-open mikupad.html
-```
-To use **mikupad** fully offline, run the provided `compile` script or download the pre-compiled `mikupad_compiled.html` file from [Releases](https://github.com/lmg-anon/mikupad/releases/latest).
+Llama.cpp WebUI slows down to 0.4 characters per second when the page gets large.
+[mikupad](https://github.com/lmg-anon/mikupad) exists, but it's built with ReactJS and needs a compile step and is like 400kB.
 
-You can also [try it on GitHub Pages](https://lmg-anon.github.io/mikupad/mikupad.html).
+Is needing`./compile.sh` to get webpage cool?  *I don't think so.*
+
+Enter **bloppadd!** because:
+- browsers already have a text editor (it's called `<textarea>`)
+- browsers already know how to make HTTP requests (it's called `fetch()`)
+
+bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 chars per second like llama.cpp WebUI. It doesn't need `npm install`.  No Node.js. No transpilation. No bundling. No virtual DOM. No dependencies to audit for security vulnerabilities every tuesday.
+
+Type stuff, and hit Ctrl+D to generate.
+
+"But React is the future!" Yeah great, okay ... okay.. bye.
+
+## usage
+
+1. start llama-server
+2. open bloppadd.html in firefox or chrome
+3. type stuff
+4. Ctrl+D to generate
+
+that's it.
+
+## features
+
+- single file
+- no build step
+- actually lightweight
+- respects your keyboard
+- shows tokens/sec stats
+- works offline forever
+- will still run in 20 years when React is archaeological dust
+
+## comparing to mikupad
+
+| thing | mikupad | bloppadd |
+|-------|---------|----------|
+| size | 400kB+ | ~15kB |
+| build required | yes (compile.sh) [[1]] | no |
+| framework | ReactJS [[1]] | none |
+| dependencies | React, build tools | browser |
+| loads fast | no | yes |
+| will survive npm apocalypse | no | yes |
 
 ## Contributing
 
-Contributions from the open-source community are welcome. Whether it's fixing a bug, adding a feature, or improving the documentation, your contributions are greatly appreciated. To contribute to **mikupad**, follow these steps:
-
-1. Fork the repository.
-2. Create a new branch for your changes: `git checkout -b feature/your-feature-name`
-3. Make your changes and commit them: `git commit -m 'Add your feature'`
-4. Push your changes to your forked repository: `git push origin feature/your-feature-name`
-5. Open a pull request on the main repository, explaining your changes.
+NO.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+MIT Public License.
+
+## the end
+
+I'm the best!
+              
