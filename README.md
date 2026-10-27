@@ -3,7 +3,7 @@
 ***bloppadd*** is a super simple webpage for talking to llama.cpp.
 
 
-![image](https://github.com)
+![image](https://github.com/clort81/bloppadd/blob/main/bloppadd.png)
 
 It's just one HTML file, see? No building, no installing. Just open and go.
 
