@@ -1,18 +1,14 @@
 # bloppadd
 
-***bloppadd*** is a super simple webpage for talking to llama.cpp.
-
+***bloppadd*** is the KISS client to llama.cpp's **llama-server**.
 
 ![image](https://github.com/clort81/bloppadd/blob/main/bloppadd.png)
 
-It's just one HTML file, see? No building, no installing. Just open and go.
-
-Works with llama-server. Type things, get responses back.  Copy and paste to input box, and from output box.  We have browser-native scrollbars.
+Type things, hit Ctrl-D to send, get responses back.  Paste to input box, copy from output box.
 
 ## Why this thing? 
 
-Llama.cpp WebUI slows down to 0.4 characters per second when the page gets large.
-[mikupad](https://github.com/lmg-anon/mikupad) exists, but it's built with ReactJS and needs a compile step and is like 400kB.
+Llama.cpp WebUI slows down to 0.4 characters per second when the page gets large. Alternative frontends like [mikupad](https://github.com/lmg-anon/mikupad) existings, but they built with ReactJS and needs a compile step and is like 400kB.
 
 Is needing`./compile.sh` to get webpage cool?  *I don't think so.*
 
@@ -22,9 +18,7 @@ Enter **bloppadd!** because:
 
 bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 chars per second like llama.cpp WebUI. It doesn't need `npm install`.  No Node.js. No transpilation. No bundling. No virtual DOM. No dependencies to audit for security vulnerabilities every tuesday.
 
-Type stuff, and hit Ctrl+D to generate.
-
-"But React is the future!" Yeah great, okay ... okay.. bye.
+**"But React is the future!" Yeah great, okay ... okay.. bye.**
 
 ## usage
 
@@ -32,8 +26,6 @@ Type stuff, and hit Ctrl+D to generate.
 2. open bloppadd.html in firefox or chrome
 3. type stuff
 4. Ctrl+D to generate
-
-that's it.
 
 ## features
 
@@ -58,7 +50,7 @@ that's it.
 
 ## Contributing
 
-NO.
+NO
 
 ## License
 
