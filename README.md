@@ -59,4 +59,4 @@ MIT Public License.  Made with LOCAL LLM ONLY: Qwen27b and GLM5.3-flash.
 ## the end
 
 I'm the best!
-              
+(made humbly with local llama: qwen27b and glm5.3-flash)              
