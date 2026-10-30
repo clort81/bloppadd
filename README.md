@@ -5,6 +5,7 @@
 ![image](https://github.com/clort81/bloppadd/blob/main/bloppadd.gif)
 
 Type things, hit Ctrl-D to send, get responses back.  Paste to input box, copy from output box.
+
 **NEW!** Undo+Edit last, Save Last, Image Upload
 
 ## Why this thing? 
