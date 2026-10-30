@@ -9,7 +9,7 @@
 :root {
 	--usergreen:  #66cc33;   /* user text: editor + user turns in output */
 	--servltgrey: #e8e8e8;   /* assistant answer text */
-	--servdkgrey: #9090a0;   /* assistant thinking text (grey, small) */
+	--servdkgrey: #9090a0;   /* assistant reasoning text (grey, small) */
 	--panebg:     #2a1a12;   /* output/editor surroundings */
 	--setbg:      #12141c;   /* settings panel background */
 	--setfg:      #9ca0c4;   /* settings panel text */
@@ -18,8 +18,8 @@
 
 /* ============================================================
    SECTION 2: PAGE FRAME
-   The page is a fixed-height, non-scrolling canvas.
-   Sub-regions scroll instead; the browser scrollbar never appears.
+   Fixed-height, non-scrolling canvas. Sub-regions scroll instead;
+   the browser scrollbar never appears.
    body is a flex COLUMN:  [ output ]  then  [ bottom ] pinned below.
    ============================================================ */
 html, body {
@@ -42,10 +42,10 @@ body {
    the speaker and content type.
    ============================================================ */
 #output {
-	flex: 1;                       /* fill everything above #bottom */
-	min-height: 0;                 /* allow flexbox to shrink below content size */
+	flex: 1;
+	min-height: 0;
 	font: 15px monospace;
-	overflow-y: scroll;            /* subwindow scrollbar */
+	overflow-y: scroll;
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	background: var(--panebg);
@@ -60,20 +60,19 @@ body {
 
 /* ============================================================
    SECTION 4: TEXT-INPUT BOX (bottom-left region)
-   #bottom is the fixed-height footer. #edwrap stretches to the
-   full height of the footer (flush with the settings column's
-   top and bottom edges); the textarea fills #edwrap.
+   #bottom is the fixed-height footer. #edwrap stretches flush with
+   the settings column; the textarea fills #edwrap.
    ============================================================ */
 #bottom {
 	display: flex;
-	flex: none;                    /* fixed-height footer; output takes the rest */
+	flex: none;
 	padding: 0.4em;
 }
 
 #edwrap {
-	flex: 1;                       /* take all remaining width */
-	min-width: 0;                  /* allow flexbox to shrink below content size */
-	display: flex;                 /* make textarea fill our full height */
+	flex: 1;
+	min-width: 0;
+	display: flex;
 	font: 16px monospace;
 	overflow: hidden;
 	white-space: pre-wrap;
@@ -87,22 +86,21 @@ body {
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	overflow-y: auto;
-	display: block;                /* avoid inline baseline gap at the bottom */
+	display: block;
 	width: 100%;
-	height: 100%;                  /* stretch flush with the settings column */
-	flex: 1;                       /* fill #edwrap in both axes */
-	box-sizing: border-box;        /* 100% includes padding+border */
+	height: 100%;
+	flex: 1;
+	box-sizing: border-box;
 	border: 0;
-	resize: none;                  /* no user-resize grip */
+	resize: none;
 	padding: 0.25em;
 	font: 16px monospace;
 }
 
 /* ============================================================
    SECTION 5: SETTINGS BOX (bottom-right region)
-   A narrow flex column of rows: server, model (no label text —
-   the box alone identifies it), the 2x2 numeric grid, the button
-   row, and the status box (status line + live perf stats).
+   Narrow flex column: server, model, 2x2 numeric grid, buttons,
+   status box (status line + live perf stats).
    ============================================================ */
 #settings {
 	width: 13%;
@@ -129,7 +127,6 @@ body {
 	padding: 0.15em;
 }
 
-/* extra vertical air between rows — small, box stays compact */
 #settings > label:nth-of-type(n+2),
 #settings > #nums,
 #settings > #controls,
@@ -137,7 +134,6 @@ body {
 	margin-top: 0.3em;
 }
 
-/* --- numeric params: 2 columns x 2 rows --- */
 #nums {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -152,7 +148,6 @@ body {
 	font: 13px monospace;
 }
 
-/* --- buttons: two centered rows --- */
 #controls,
 #controls2 {
 	display: flex;
@@ -165,10 +160,6 @@ body {
 	margin: 0 0.15em;
 }
 
-/* --- status box: own block below the buttons ---
-   Row 1: centered status message (ready/streaming/error/...)
-   Row 2: pp and tg side-by-side (live during inference)
-   Row 3: ctx used/total. Stats persist after completion. */
 #statusbox {
 	margin-top: 0.3em;
 	font: 13px monospace;
@@ -180,18 +171,19 @@ body {
 	display: block;
 	text-align: center;
 	padding: 0.15em;
-    white-space: nowrap;
-    overflow: hidden; 
-    text-overflow: clip;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: clip;
 }
 
 .stat {
 	display: block;
 	padding: 0.1em 0.15em;
 	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: clip;
 }
 
-/* --- pp/tg share one line; ctx gets its own --- */
 #statrow {
 	display: flex;
 }
@@ -200,7 +192,6 @@ body {
 	flex: 1;
 }
 
-/* --- buttons everywhere (incl. #controls) --- */
 button {
 	background: var(--setbg);
 	color: var(--setfg);
@@ -243,9 +234,9 @@ button:hover {
 			<button id="newbtn">new</button>
 		</div>
 		<div id="controls2">
-			<button id="btn4">…</button>
-			<button id="btn5">…</button>
-			<button id="btn6">…</button>
+			<button id="btn4">undo</button>
+			<button id="btn5">save</button>
+			<button id="btn6">img</button>
 		</div>
 
 		<div id="statusbox">
@@ -262,47 +253,91 @@ button:hover {
 "use strict";
 
 /* ============================================================
+   bloppadk: the OpenAI-compatible turn.
+
+   WHAT DIED AND WHY:
+     - buildPrompt() and the hardcoded Qwen wire format: the server
+       now renders every family's chat template itself, from the
+       Jinja template inside the GGUF.
+     - The TH_OPEN/TH_CLOSE tag table and the thFeed/thPrint state
+       machine: with --reasoning-format auto|deepseek the server
+       strips reasoning blocks and returns them OUT OF BAND in
+       delta.reasoning_content. Split-tag buffering is now a C++
+       problem, solved once, for all clients.
+     - modelStop harvesting from chat_template: the server knows its
+       own EOS and turn-end strings. Stop tokens are its job.
+
+   WHAT SURVIVED:
+     - The shell, the palette, the guards, Ctrl+D, the AbortController,
+       the perf stats with their retention rule, /props probing for
+       name + n_ctx, and the slot-erase reset.
+     - The philosophy: one file, no frameworks, no build step.
+
+   SERVER SIDE, REQUIRED FOR GREY THOUGHTS:
+     llama-server --reasoning-format auto   (or deepseek)
+   With --reasoning-format none, reasoning arrives in-band inside
+   delta.content and will render as part of the answer. Probe your
+   build:  llama-server --help 2>&1 | grep reasoning-format
+
+   CONTEXT-USED DISPLAY (¢):
+     Anchored to server truth: lastServerPromptTokens from the
+     previous turn's usage.prompt_tokens + chars/4 for new text.
+     Live: ticks during streaming via updateCtxLive().
+     Exact: snaps to usage.total_tokens on the final chunk.
+     Purpose: warn the user when the context window is approaching.
+
+   SLOT TRACKING:
+     probeSlot() queries GET /slots, picks the first idle slot.
+     slot_id is sent in the request body to pin the conversation.
+     Erase calls target /slots/{id}?action=erase.
+
+   LIVE TG:
+     During streaming, updateCtxLive() computes a rolling
+     tokens/sec over a 800 ms window. The final chunk's
+     timings.predicted_per_second snaps to the server's number.
+
+   UNDO:
+     Removes the last complete round (user prompt + assistant reply
+     + reasoning) from the DOM, the transcript, and the server KV
+     (via slot erase). The user's prompt text is restored into the
+     editor for editing and re-submission.
+   ============================================================ */
+
+/* ============================================================
    SECTION J1: GLOBAL STATE
    Declared exactly once. ctrl == null means idle.
    ============================================================ */
 var editor, output, statusEl, server, model, send, stopbtn, newbtn;
-var stPP, stTG, stCTX;      /* live stat row in the status box */
-var nCtx = 0;               /* model context window, from /props */
-var ctrl = null;            /* AbortController of in-flight request */
-var transcript = [];        /* JS owns the chat: [{role, content}, ...] */
-var reply = "";             /* raw streamed reply for the current turn */
-var shownThought = 0;       /* chars of thought text already displayed */
-var shownAnswer = 0;        /* chars of answer text already displayed */
-var thoughtSpan = null;     /* <span> holding grey thought text, live */
-var answerSpan = null;      /* <span> holding bright answer text, live */
+var stPP, stTG, stCTX;
+var nCtx = 0;
+var ctrl = null;
+var transcript = [];
+var reply = "";
+var thoughtSpan = null;
+var answerSpan = null;
+var thoughtTail = "";
+var finishReason = "";
+var promptEst = 0;
+var thoughtChars = 0;
 
-/* ============================================================
-   SECTION J1b: THOUGHT-BLOCK STATE MACHINE
-   One table, every family:
-     gemma-3/4:                 <|channel>thought ... <channel|>
-     glm-4.5+/5.x, qwen3, r1:   <think> ...  </think>
-   Add pairs here; nothing else changes. Tags are never printed.
-   Thoughts render grey + small, single linefeeds only.
-   ============================================================ */
-var TH_OPEN = ["<think>", "<|channel>thought"];
-var TH_CLOSE = ["</think>", "<channel|>"];
-var TH_MAX = 0;
-(function () {
-	for (var i = 0; i < TH_OPEN.length; i++)
-		TH_MAX = Math.max(TH_MAX, TH_OPEN[i].length, TH_CLOSE[i].length);
-})();
+/* --- baseline re-normalization --- */
+var lastServerPromptTokens = 0;   /* ground truth from last finished turn */
 
-var thPending = "";	/* text not yet safe to print (may hold a split tag) */
-var thIn = false;	/* inside a thought block? */
-var thEl = null;	/* current <span class="thought"> */
-var thLast = "";	/* last char printed in thought mode */
+/* --- slot tracking --- */
+var slotId = null;                /* pinned server slot, from /slots probe */
+
+/* --- undo / cut --- */
+var turnMarks = [];               /* indices into output.childNodes per turn */
+
+/* --- live TG --- */
+var tgLastTime = 0;               /* performance.now() of last TG sample */
+var tgLastTokens = 0;             /* completion token estimate at last sample */
 
 /* ============================================================
    SECTION J2: SMALL HELPERS
    ============================================================ */
 
-/* The input box shows the bare host:port. This helper prepends
-   the scheme only at the moment a fetch is about to be made. */
+/* The input box shows bare host:port; prepend scheme at fetch time. */
 function serverURL() {
 	var v = server.value.trim().replace(/\/+$/, "");
 	if (v && v.indexOf("http://") !== 0 && v.indexOf("https://") !== 0)
@@ -322,7 +357,7 @@ function num(id, def) {
 }
 
 function scrollBottom() {
-	output.scrollTop = output.scrollHeight;   /* snap: follow the stream */
+	output.scrollTop = output.scrollHeight;
 }
 
 /* append a colored span to the output log; returns the span */
@@ -337,135 +372,166 @@ function addSpan(cls, text) {
 
 /* ============================================================
    SECTION J2b: PERF STAT DISPLAY
-   llama-server reports per-stream-end timings:
-     timings.prompt_per_second     -> pp  (prefill tok/s)
-     timings.predicted_per_second  -> tg  (generation tok/s)
-     timings.tokens_cached         -> ctx numerator (against nCtx)
+   Two possible sources, whichever the server provides:
+     o.timings (llama.cpp extension on the final chunk):
+       prompt_per_second -> pp, predicted_per_second -> tg.
+     o.usage (OpenAI standard, requires stream_options below):
+       prompt_tokens, completion_tokens, total_tokens.
    RETENTION RULE: stats are never zeroed after a round. The last
-   nonzero figures stay on screen so the user can appraise the
-   server's performance between rounds.
+   nonzero figures stay on screen between rounds.
+   Live TG is handled in updateCtxLive(); the final chunk's
+   timings.predicted_per_second overrides it with the exact number.
    ============================================================ */
-function showStats(pp, tg, cached) {
+function showStats(pp, tg) {
 	if (typeof pp === "number" && pp > 0)
 		stPP.textContent = "pp: " + Math.round(pp);
 	if (typeof tg === "number" && tg > 0)
 		stTG.textContent = "tg: " + Math.round(tg);
-	if (typeof cached === "number" && cached > 0) {
-		stCTX.textContent = "¢ " + cached
-			+ (nCtx > 0 ? "/" + nCtx : "");
-	}
 }
 
 /* ============================================================
-   SECTION J3: PROMPT BUILDING (Qwen3 wire format)
+   SECTION J3: HISTORY AND ITS TRIMMING
+   The transcript is a projection, not the screen: trimming it does
+   not erase anything the user can see. Truncation invalidates the
+   server's KV prefix from token 0, so it costs one full re-prefill
+   ("the cliff"). Policy: pay the cliff RARELY and in BIG chunks —
+   drop oldest messages until we sit at 60% of budget, not one turn
+   per overflow. Token estimate is chars/4: crude, good enough to
+   decide when to jump.
+
+   Returns true if trimming occurred (baseline is now stale).
    ============================================================ */
-/* render full transcript, ending on assistant: the model speaks next */
-function buildPrompt() {
-	var s = "", i;
-	for (i = 0; i < transcript.length; i++) {
-		s += "<|im_start|>" + transcript[i].role + "\n"
-		   + transcript[i].content + "<|im_end|>\n";
+function estTokens() {
+	var c = 0;
+	for (var i = 0; i < transcript.length; i++)
+		c += transcript[i].content.length;
+	return Math.ceil(c / 4);
+}
+
+function trimTranscript() {
+	if (nCtx <= 0) return false;
+	var budget = Math.floor(nCtx * 0.75);
+	if (estTokens() <= budget) return false;
+	var target = Math.floor(nCtx * 0.60);
+	var trimmed = false;
+	while (transcript.length > 2 && estTokens() > target) {
+		transcript.shift();
+		trimmed = true;
 	}
-	return s + "<|im_start|>assistant\n";
+	if (trimmed) {
+		lastServerPromptTokens = 0;
+		console.log("history trimmed to", transcript.length,
+			"messages; baseline reset, next turn re-anchors");
+	}
+	return trimmed;
 }
 
 /* ============================================================
    SECTION J4: OUTPUT DISPLAY
    User turns: one green span. Assistant turns: grey thought span
    then bright answer span, created lazily and streamed into.
+   Reasoning arrives tag-free from the server; we still tidy its
+   whitespace: single linefeeds render, runs collapse to one.
+
+   The ¢ context stat ticks live during streaming via updateCtxLive().
+   Live TG is computed in the same pass.
    ============================================================ */
-/* user turn: one green block; color alone marks the speaker */
 function logUser(text) {
+	turnMarks.push(output.childNodes.length);
 	addSpan("user", text + "\n");
 }
 
-/* thought-block printer: handles grey+small rendering, no double linefeeds */
-function thPrint(t) {
-	if (!thIn) {
-		if (t === "") return;
-		if (!answerSpan)
-			answerSpan = addSpan("answer", "");
-		answerSpan.textContent += t;
-		shownAnswer += t.length;
-		scrollBottom();
-		return;
-	}
-	t = t.replace(/\n\n+/g, "\n");	/* thoughts: no double linefeeds, ever */
-	if (thLast === "\n" && t.charAt(0) === "\n")
+function appendThought(t) {
+	t = t.replace(/\n{2,}/g, "\n");
+	if (thoughtTail === "\n" && t.charAt(0) === "\n")
 		t = t.slice(1);
 	if (t === "") return;
-	thLast = t.charAt(t.length - 1);
-	if (!thEl) {
-		thEl = document.createElement("span");
-		thEl.className = "thought";
-		output.appendChild(thEl);
-		scrollBottom();
-	}
-	thEl.appendChild(document.createTextNode(t));
-	shownThought += t.length;
+	thoughtTail = t.charAt(t.length - 1);
+	thoughtChars += t.length;
+	if (!thoughtSpan)
+		thoughtSpan = addSpan("thought", "");
+	thoughtSpan.textContent += t;
 	scrollBottom();
+	updateCtxLive();
 }
 
-/* thought-block feed: buffer text, scan for tags, print safely */
-function thFeed(text) {
-	thPending += text;
-	for (;;) {
-		var at = -1, tag = null, open = false, k, j;
-		for (k = 0; k < TH_OPEN.length; k++) {
-			j = thPending.indexOf(TH_OPEN[k]);
-			if (j >= 0 && (at < 0 || j < at)) { at = j; tag = TH_OPEN[k]; open = true; }
-			j = thPending.indexOf(TH_CLOSE[k]);
-			if (j >= 0 && (at < 0 || j < at)) { at = j; tag = TH_CLOSE[k]; open = false; }
-		}
-		if (tag === null) break;
-		thPrint(thPending.slice(0, at));
-		thPending = thPending.slice(at + tag.length);
-		if (open) {
-			thIn = true;
-			thLast = "\n";	/* eats the linefeed right after the open tag */
-		} else {
-			thIn = false;
-			thEl = null;
-		}
-	}
-	/* print all of pending except a tail that could still grow into a tag */
-	var keep = 0, n;
-	for (n = 1; n < TH_MAX && n <= thPending.length; n++) {
-		var tail = thPending.slice(thPending.length - n);
-		for (k = 0; k < TH_OPEN.length; k++) {
-			if (TH_OPEN[k].indexOf(tail) === 0 || TH_CLOSE[k].indexOf(tail) === 0)
-				keep = n;
-		}
-	}
-	thPrint(thPending.slice(0, thPending.length - keep));
-	thPending = thPending.slice(thPending.length - keep);
+function appendAnswer(t) {
+	if (t === "") return;
+	reply += t;
+	if (!answerSpan)
+		answerSpan = addSpan("answer", "");
+	answerSpan.textContent += t;
+	scrollBottom();
+	updateCtxLive();
 }
 
-function thReset() { thPending = ""; thIn = false; thEl = null; thLast = ""; }
-function thFlush() {
-	thPrint(thPending);	/* leftover half-tag at end of run: just text */
-	thPending = ""; thIn = false; thEl = null;
+/* Live context-used estimate + live TG.
+   Called on every streamed chunk.
+   ¢: promptEst + completion chars/4.
+   TG: rolling tokens/sec over 800 ms window.
+   Snaps to exact usage.total_tokens on the final chunk (in the sink). */
+function updateCtxLive() {
+	if (nCtx <= 0) return;
+	var completionEst = Math.ceil((reply.length + thoughtChars) / 4);
+	var est = promptEst + completionEst;
+	stCTX.textContent = "¢ " + est + "/" + nCtx;
+
+	/* --- live TG --- */
+	var now = performance.now();
+	if (tgLastTime === 0) {
+		tgLastTime = now;
+		tgLastTokens = completionEst;
+		return;
+	}
+	var dt = (now - tgLastTime) / 1000;
+	if (dt >= 0.8) {
+		var delta = completionEst - tgLastTokens;
+		if (delta > 0) {
+			var rate = delta / dt;
+			stTG.textContent = "tg: " + Math.round(rate);
+		}
+		tgLastTime = now;
+		tgLastTokens = completionEst;
+	}
 }
 
 /* reset per-turn stream state at the start of a generate */
 function beginReply() {
 	reply = "";
-	shownThought = 0;
-	shownAnswer = 0;
+	thoughtChars = 0;
+	promptEst = 0;
 	thoughtSpan = null;
 	answerSpan = null;
-	thReset();
+	thoughtTail = "";
+	finishReason = "";
+	tgLastTime = 0;
+	tgLastTokens = 0;
 }
 
 /* ============================================================
-   SECTION J5: SSE PARSER
-   Incremental: buffer chunks, process complete lines, keep the
-   trailing partial line. Emits obj.content per llama-server
-   /completion stream events. The final stream event also carries
-   obj.timings — captured here for the perf stats.
-   Honors obj.stop === true: cancels the reader and stops pulling.
+   SECTION J4c: UNDO / CUT — DOM REMOVAL
+   Removes the last n turn-pairs from the output DOM.
+   turnMarks holds the childNode index where each user span begins.
    ============================================================ */
-function makeSseSink(emit, onTimings, onCache) {
+function removeLastTurns(n) {
+	while (n > 0 && turnMarks.length > 0) {
+		var startIdx = turnMarks[turnMarks.length - 1];
+		while (output.childNodes.length > startIdx)
+			output.removeChild(output.lastChild);
+		turnMarks.pop();
+		n--;
+	}
+}
+
+/* ============================================================
+   SECTION J5: SSE FRAMING (OpenAI chat chunk format)
+   Lines are "data: {json}", terminated by "data: [DONE]". Chunk
+   shape: {choices:[{delta:{content, reasoning_content},
+   finish_reason}]}; the final chunk (with stream_options below)
+   carries {usage:{...}} and, on llama.cpp, may carry {timings}.
+   The sink only frames; generate() interprets.
+   ============================================================ */
+function makeSseSink(onObj) {
 	var buf = "";
 	return function (chunk) {
 		buf += chunk;
@@ -478,18 +544,13 @@ function makeSseSink(emit, onTimings, onCache) {
 			if (payload === "[DONE]") continue;
 			var obj;
 			try { obj = JSON.parse(payload); } catch (e) { continue; }
-			if (typeof obj.content === "string")
-				emit(obj.content);
-			if (obj.timings && onTimings)
-				onTimings(obj.timings);
-			if (typeof obj.tokens_cached === "number" && onCache)
-				onCache(obj.tokens_cached);
+			onObj(obj);
 		}
 	};
 }
 
 /* ============================================================
-   SECTION J6: ACTIONS (stop / new / generate)
+   SECTION J6: ACTIONS (stop / new / undo / save / img / keys)
    ============================================================ */
 function stopGen() {
 	if (!ctrl) return;
@@ -512,32 +573,118 @@ function newSession() {
 	if (!url) { setStatus("no server url"); return; }
 
 	transcript = [];
+	turnMarks = [];
+	lastServerPromptTokens = 0;
 	beginReply();
 	editor.value = "";
 	editor.focus();
 	output.textContent = "";
 	setStatus("clearing…");
 
-	fetch(url + "/slots/0?action=erase", { method: "POST" })
+	var eraseUrl = url + "/slots/" + (slotId !== null ? slotId : 0)
+		+ "?action=erase";
+	fetch(eraseUrl, { method: "POST" })
 	.then(function (res) {
-		if (!res.ok)
-			throw new Error("HTTP " + res.status);
-		setStatus("reset/ready");
+		if (!res.ok) throw new Error("HTTP " + res.status);
+		setStatus("reset/ready" + (slotId !== null ? " · slot " + slotId : ""));
 	})
 	.catch(function (err) {
 		setStatus("cleared");
 	});
 }
 
+/* Undo the last complete round:
+   1. Save the user prompt text (second-to-last transcript entry).
+   2. Pop assistant (if present) and user from transcript.
+   3. Remove the DOM nodes for that turn.
+   4. Reset the token baseline.
+   5. Erase the server slot so KV state matches the trimmed history.
+   6. Restore the user text into the editor and focus it.
+   ============================================================ */
+function undoLast() {
+	if (ctrl) { setStatus("busy — stop first"); return; }
+	if (turnMarks.length === 0) { setStatus("nothing to undo"); return; }
+
+	/* grab the user text before we pop it */
+	var savedText = "";
+	var i = transcript.length - 1;
+	/* walk back to find the user message (may be last if no assistant
+	   reply was recorded, e.g. aborted before any tokens) */
+	while (i >= 0 && transcript[i].role === "assistant")
+		i--;
+	if (i >= 0 && transcript[i].role === "user")
+		savedText = transcript[i].content;
+
+	/* pop from transcript: assistant (if any), then user */
+	if (transcript.length > 0
+	 && transcript[transcript.length - 1].role === "assistant")
+		transcript.pop();
+	if (transcript.length > 0
+	 && transcript[transcript.length - 1].role === "user")
+		transcript.pop();
+
+	/* strip the DOM */
+	removeLastTurns(1);
+	lastServerPromptTokens = 0;
+
+	/* tell the server to forget */
+	var url = serverURL();
+	if (url && slotId !== null) {
+		fetch(url + "/slots/" + slotId + "?action=erase",
+			{ method: "POST" })
+		.then(function () {})
+		.catch(function () {});
+	}
+
+	/* restore the prompt into the editor */
+	editor.value = savedText;
+	editor.focus();
+	/* place cursor at end of restored text */
+	editor.selectionStart = editor.selectionEnd = savedText.length;
+
+	setStatus("undone");
+}
+
+/* Placeholder: save transcript to file. Not yet implemented. */
+function saveTranscript() {
+	setStatus("save: not yet");
+}
+
+/* Placeholder: render output as image. Not yet implemented. */
+function exportImage() {
+	setStatus("img: not yet");
+}
+
 /* ============================================================
    SECTION J7: MODEL PROBING
-   Fill the model display from /props: basename of model_path.
-   Also captures n_ctx, and extracts end-of-turn tags from
-   chat_template into modelStop (plus the server's own default
-   stop strings), so generate() can hand them back as "stop"
-   for ANY model family.
+   /props gives the display name (basename of model_path) and n_ctx
+   for the ctx stat and the trim budget. chat_template_caps is logged
+   for the curious. No tag harvesting remains: the server owns
+   templates and stop strings now.
+
+   After props succeed, probeSlot() discovers the server slot.
    ============================================================ */
-var modelStop = [];	/* dynamic, per-model stop strings */
+function probeSlot(url) {
+	return fetch(url + "/slots")
+	.then(function (res) {
+		if (!res.ok) throw new Error("HTTP " + res.status);
+		return res.json();
+	})
+	.then(function (slots) {
+		if (Array.isArray(slots) && slots.length > 0) {
+			var idle = null;
+			for (var i = 0; i < slots.length; i++) {
+				if (slots[i].state === 0) { idle = slots[i]; break; }
+			}
+			slotId = (idle || slots[0]).id;
+		} else {
+			slotId = 0;
+		}
+	})
+	.catch(function () {
+		slotId = 0;
+	});
+}
 
 function probeModel(url) {
 	return fetch(url + "/props")
@@ -546,36 +693,21 @@ function probeModel(url) {
 		return res.json();
 	})
 	.then(function (p) {
-		/* 1. display name: basename of model_path */
 		var path = p.model_path || "";
 		model.value = path.split("/").pop() || "(unknown model)";
-
-		/* 2. context size for the ctx stat */
 		var dgs = p.default_generation_settings || {};
 		nCtx = dgs.n_ctx || 0;
-
-		/* 3. end-of-turn tags. every <|...|> special token the chat
-		   template mentions, deduped via an object. Over-collecting
-		   is harmless (the server just watches for strings); under-
-		   collecting is what makes models ramble past their turn. */
-		var seen = {};
-		var re = /<\|[^<>|]+\|>/g;
-		var m;
-		while ((m = re.exec(p.chat_template || "")) !== null)
-			seen[m[0]] = 1;
-		/* the server's own defaults join the list */
-		var defs = (dgs.params && dgs.params.stop) || [];
-		for (var i = 0; i < defs.length; i++)
-			seen[defs[i]] = 1;
-		modelStop = Object.keys(seen);
-
+		lastServerPromptTokens = 0;
+		turnMarks = [];
+		console.log("chat_template_caps:",
+			JSON.stringify(p.chat_template_caps || {}));
 		stCTX.textContent = "¢ 0" + (nCtx > 0 ? "/" + nCtx : "");
-		setStatus("ready");
+		return probeSlot(url);
+	})
+	.then(function () {
+		setStatus("ready" + (slotId !== null ? " · slot " + slotId : ""));
 	})
 	.catch(function (err) {
-		/* no server, no props: degrade, don't die. generate() still
-		   works, just without dynamic stop tags. */
-		modelStop = [];
 		nCtx = 0;
 		model.value = "(no server)";
 		setStatus("error: " + err.message);
@@ -584,91 +716,114 @@ function probeModel(url) {
 
 /* ============================================================
    SECTION J8: GENERATE
-   Guards first, side effects second. Messages say why nothing
-   happened. One AbortController per generation; stop button
-   aborts it. Dynamic stop tokens from probeModel().
+   Guards first, side effects second. One AbortController per
+   generation; the stop button aborts it. The whole conversation
+   goes out as a messages array; the server renders the template,
+   streams delta.reasoning_content and delta.content separately,
+   and stops itself at its own turn-end tokens.
+
+   Context-used (¢) display:
+     At turn start: promptEst anchored to lastServerPromptTokens
+       (server truth) + chars/4 for the new user text. Falls back
+       to estTokens() if the baseline is stale (trim, abort, new).
+     During stream: updateCtxLive() ticks ¢ and TG on every chunk.
+     On final chunk: snaps to exact usage.total_tokens; stores
+       usage.prompt_tokens as the new baseline.
    ============================================================ */
 function generate() {
-	/* guards */
 	if (ctrl) { setStatus("busy"); return; }
-	var userText = editor.value.trim();
-	if (userText === "") { setStatus("empty prompt"); return; }
-
+	var userText = editor.value;
+	if (userText.trim() === "") { setStatus("empty prompt"); return; }
 	var url = serverURL();
 	if (!url) { setStatus("no server url"); return; }
 
-	/* log user turn */
 	logUser(userText);
 	transcript.push({ role: "user", content: userText });
 	editor.value = "";
 	beginReply();
 
+	var didTrim = trimTranscript();
+
+	if (didTrim || lastServerPromptTokens === 0) {
+		promptEst = estTokens();
+	} else {
+		promptEst = lastServerPromptTokens
+			+ Math.ceil(userText.length / 4);
+	}
+
 	ctrl = new AbortController();
 	setStatus("generating");
 
-	fetch(url + "/completion", {
+	var body = {
+		messages: transcript,
+		stream: true,
+		stream_options: { include_usage: true },
+		temperature: num("temp", 1.0),
+		top_p: num("top_p", 0.95),
+		repeat_penalty: num("rp", 1.0)
+	};
+	if (slotId !== null) body.slot_id = slotId;
+
+	var np = parseInt($("n_predict").value, 10);
+	if (np > 0) body.max_tokens = np;
+
+	fetch(url + "/v1/chat/completions", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		signal: ctrl.signal,
-		body: JSON.stringify({
-			prompt: buildPrompt(),
-			n_predict: parseInt($("n_predict").value, 10) || -1,
-			temperature: num("temp", 1.0),
-			top_p: num("top_p", 0.95),
-			repeat_penalty: num("rp", 1.0),
-			stop: modelStop,	/* dynamic, per model, from /props */
-			stream: true
-		})
+		body: JSON.stringify(body)
 	}).then(function (res) {
 		if (!res.ok) throw new Error("server said " + res.status);
 		return new Promise(function (resolve, reject) {
 			var reader = res.body.getReader();
-			var decoder = new TextDecoder();
-			var sink = makeSseSink(
-				thFeed,	/* emit: feed through thought state machine */
-				function (timings) {	/* onTimings: capture perf stats */
-					showStats(
-						timings.prompt_per_second,
-						timings.predicted_per_second,
-						timings.tokens_cached
-					);
-				},
-				function (cached) {	/* onCache: live ctx display */
-					stCTX.textContent = "¢ " + cached
+			var dec = new TextDecoder();
+			var sink = makeSseSink(function (o) {
+				var ch = o.choices && o.choices[0];
+				if (ch && ch.delta) {
+					if (typeof ch.delta.reasoning_content === "string")
+						appendThought(ch.delta.reasoning_content);
+					if (typeof ch.delta.content === "string")
+						appendAnswer(ch.delta.content);
+					if (ch.finish_reason)
+						finishReason = ch.finish_reason;
+				}
+				if (o.timings)
+					showStats(o.timings.prompt_per_second,
+						o.timings.predicted_per_second);
+				if (o.usage) {
+					lastServerPromptTokens = o.usage.prompt_tokens;
+					stCTX.textContent = "¢ " + o.usage.total_tokens
 						+ (nCtx > 0 ? "/" + nCtx : "");
 				}
-			);
-			function pump() {
-				reader.read().then(function (result) {
-					if (result.done) {
-						resolve();
-						return;
-					}
-					var chunk = decoder.decode(result.value, { stream: true });
-					sink(chunk);
+			});
+			(function pump() {
+				reader.read().then(function (r) {
+					if (r.done) { resolve(); return; }
+					sink(dec.decode(r.value, { stream: true }));
 					pump();
 				}).catch(reject);
-			}
-			pump();
+			})();
 		});
 	}).then(function () {
-		thFlush();	/* close any open thought block */
-		transcript.push({ role: "assistant", content: reply });
+		if (reply !== "")
+			transcript.push({ role: "assistant", content: reply });
 		output.appendChild(document.createTextNode("\n"));
 		scrollBottom();
-		setStatus("done");
+		setStatus(finishReason === "length" ? "done (limit)" : "done");
 	}).catch(function (err) {
-		thFlush();
 		if (err.name === "AbortError") {
+			if (reply !== "")
+				transcript.push({ role: "assistant", content: reply });
 			output.appendChild(document.createTextNode("\n"));
 			scrollBottom();
+			lastServerPromptTokens = 0;
 			setStatus("stopped");
 		} else {
 			setStatus("error: " + err.message);
 			console.error(err);
 		}
 	}).then(function () {
-		ctrl = null;	/* single cleanup point: success, error AND abort */
+		ctrl = null;
 	});
 }
 
@@ -690,6 +845,9 @@ function main() {
 	send.onclick    = generate;
 	stopbtn.onclick = stopGen;
 	newbtn.onclick  = newSession;
+	$("btn4").onclick = undoLast;
+	$("btn5").onclick = saveTranscript;
+	$("btn6").onclick = exportImage;
 	editor.addEventListener("keydown", editorKeydown);
 	probeModel(serverURL());
 	editor.focus();
