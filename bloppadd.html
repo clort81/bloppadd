@@ -1,0 +1,701 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>bloppadd</title>
+<style>
+/* ============================================================
+   SECTION 1: GLOBAL PALETTE
+   All colors defined once here. Tweak values, not rules.
+   ============================================================ */
+:root {
+	--usergreen:  #66cc33;   /* user text: editor + user turns in output */
+	--servltgrey: #e8e8e8;   /* assistant answer text */
+	--servdkgrey: #9090a0;   /* assistant thinking text (grey, small) */
+	--panebg:     #2a1a12;   /* output/editor surroundings */
+	--setbg:      #12141c;   /* settings panel background */
+	--setfg:      #9ca0c4;   /* settings panel text */
+	--edge:       #4a5c66;   /* outlines around inputs/buttons */
+}
+
+/* ============================================================
+   SECTION 2: PAGE FRAME
+   The page is a fixed-height, non-scrolling canvas.
+   Sub-regions scroll instead; the browser scrollbar never appears.
+   body is a flex COLUMN:  [ output ]  then  [ bottom ] pinned below.
+   ============================================================ */
+html, body {
+	height: 100%;
+	overflow: hidden;
+	margin: 0;
+}
+
+body {
+	font-size: 16px;
+	display: flex;
+	flex-direction: column;
+	background: var(--panebg);
+}
+
+/* ============================================================
+   SECTION 3: SERVER OUTPUT WINDOW (top region)
+   Bounded flex item with its own scrollbar. Contains colored
+   <span> elements: .user / .thought / .answer. Color alone marks
+   the speaker and content type.
+   ============================================================ */
+#output {
+	flex: 1;                       /* fill everything above #bottom */
+	min-height: 0;                 /* allow flexbox to shrink below content size */
+	font: 15px monospace;
+	overflow-y: scroll;            /* subwindow scrollbar */
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	background: var(--panebg);
+	color: var(--servltgrey);
+	outline: none;
+	padding: 0.4em;
+}
+
+#output .user    { color: var(--usergreen); }
+#output .thought { color: var(--servdkgrey); font-size: 12px; line-height: 1; display: block; }
+#output .answer  { color: var(--servltgrey); }
+
+/* ============================================================
+   SECTION 4: TEXT-INPUT BOX (bottom-left region)
+   #bottom is the fixed-height footer. #edwrap stretches to the
+   full height of the footer (flush with the settings column's
+   top and bottom edges); the textarea fills #edwrap.
+   ============================================================ */
+#bottom {
+	display: flex;
+	flex: none;                    /* fixed-height footer; output takes the rest */
+	padding: 0.4em;
+}
+
+#edwrap {
+	flex: 1;                       /* take all remaining width */
+	min-width: 0;                  /* allow flexbox to shrink below content size */
+	display: flex;                 /* make textarea fill our full height */
+	font: 16px monospace;
+	overflow: hidden;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+#editor {
+	background: #000000;
+	color: var(--usergreen);
+	outline: none;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow-y: auto;
+	display: block;                /* avoid inline baseline gap at the bottom */
+	width: 100%;
+	height: 100%;                  /* stretch flush with the settings column */
+	flex: 1;                       /* fill #edwrap in both axes */
+	box-sizing: border-box;        /* 100% includes padding+border */
+	border: 0;
+	resize: none;                  /* no user-resize grip */
+	padding: 0.25em;
+	font: 16px monospace;
+}
+
+/* ============================================================
+   SECTION 5: SETTINGS BOX (bottom-right region)
+   A narrow flex column of rows: server, model (no label text —
+   the box alone identifies it), the 2x2 numeric grid, the button
+   row, and the status box (status line + live perf stats).
+   ============================================================ */
+#settings {
+	width: 13%;
+	background: var(--setbg);
+	color: var(--setfg);
+	display: flex;
+	flex-direction: column;
+	padding: 0.35em;
+}
+#settings input {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--setbg);
+	color: var(--setfg);
+	border: 0;
+	outline: 1px solid var(--edge);
+	padding: 0 0.25em;
+	margin: 0 0.25em 0 0;
+	font: 13px monospace;
+}
+
+#settings label {
+	display: block;
+	padding: 0.15em;
+}
+
+/* extra vertical air between rows — small, box stays compact */
+#settings > label:nth-of-type(n+2),
+#settings > #nums,
+#settings > #controls,
+#settings > #controls2 {
+	margin-top: 0.3em;
+}
+
+/* --- numeric params: 2 columns x 2 rows --- */
+#nums {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.15em;
+	padding: 0.15em;
+}
+
+#nums label {
+	display: block;
+	padding: 0;
+	margin: 0;
+	font: 13px monospace;
+}
+
+/* --- buttons: two centered rows --- */
+#controls,
+#controls2 {
+	display: flex;
+	justify-content: center;
+}
+
+#controls button,
+#controls2 button {
+	flex: none;
+	margin: 0 0.15em;
+}
+
+/* --- status box: own block below the buttons ---
+   Row 1: centered status message (ready/streaming/error/...)
+   Row 2: pp and tg side-by-side (live during inference)
+   Row 3: ctx used/total. Stats persist after completion. */
+#statusbox {
+	margin-top: 0.3em;
+	font: 13px monospace;
+	color: var(--setfg);
+	background: var(--setbg);
+}
+
+#status {
+	display: block;
+	text-align: center;
+	padding: 0.15em;
+    white-space: nowrap;
+    overflow: hidden; 
+    text-overflow: clip;
+}
+
+.stat {
+	display: block;
+	padding: 0.1em 0.15em;
+	white-space: nowrap;
+}
+
+/* --- pp/tg share one line; ctx gets its own --- */
+#statrow {
+	display: flex;
+}
+
+#statrow .stat {
+	flex: 1;
+}
+
+/* --- buttons everywhere (incl. #controls) --- */
+button {
+	background: var(--setbg);
+	color: var(--setfg);
+	font: 13px monospace;
+	border: 0;
+	outline: 1px solid var(--edge);
+	padding: 0 0.25em;
+}
+
+button:hover {
+	outline: 3px solid var(--servltgrey);
+}
+</style>
+
+<!-- ============================================================
+     HTML LAYOUT
+     [ #output                       ]  server output, own scrollbar
+     [ #bottom: #edwrap | #settings ]  editor + settings, pinned bottom
+     ============================================================ -->
+<div id="output"></div>
+<div id="bottom">
+	<div id="edwrap">
+		<textarea id="editor" spellcheck="false"> </textarea>
+	</div>
+
+	<div id="settings">
+		<input id="server" type="text" value="127.0.0.1:9931">
+		<input id="model" type="text" value="—">
+
+		<div id="nums">
+			<label>n_pred <input id="n_predict" type="text" value="-1"></label>
+			<label>temp <input id="temp" type="text" value="1.0"></label>
+			<label>top_p <input id="top_p" type="text" value="0.95"></label>
+			<label>pen <input id="rp" type="text" value="1.0"></label>
+		</div>
+
+		<div id="controls">
+			<button id="send">send</button>
+			<button id="stopbtn">stop</button>
+			<button id="newbtn">new</button>
+		</div>
+		<div id="controls2">
+			<button id="btn4">…</button>
+			<button id="btn5">…</button>
+			<button id="btn6">…</button>
+		</div>
+
+		<div id="statusbox">
+			<div id="status">ready</div>
+			<div id="statrow">
+				<span class="stat" id="st_pp">pp:</span>
+				<span class="stat" id="st_tg">tg:</span>
+			</div>
+			<span class="stat" id="st_ctx">¢</span>
+		</div>
+	</div>
+</div>
+<script>
+"use strict";
+
+/* ============================================================
+   SECTION J1: GLOBAL STATE
+   Declared exactly once. ctrl == null means idle.
+   ============================================================ */
+var editor, output, statusEl, server, model, send, stopbtn, newbtn;
+var stPP, stTG, stCTX;      /* live stat row in the status box */
+var nCtx = 0;               /* model context window, from /props */
+var ctrl = null;            /* AbortController of in-flight request */
+var transcript = [];        /* JS owns the chat: [{role, content}, ...] */
+var reply = "";             /* raw streamed reply for the current turn */
+var shownThought = 0;       /* chars of thought text already displayed */
+var shownAnswer = 0;        /* chars of answer text already displayed */
+var thoughtSpan = null;     /* <span> holding grey thought text, live */
+var answerSpan = null;      /* <span> holding bright answer text, live */
+
+/* ============================================================
+   SECTION J1b: THOUGHT-BLOCK STATE MACHINE
+   One table, every family:
+     gemma-3/4:                 <|channel>thought ... <channel|>
+     glm-4.5+/5.x, qwen3, r1:   <think> ...  </think>
+   Add pairs here; nothing else changes. Tags are never printed.
+   Thoughts render grey + small, single linefeeds only.
+   ============================================================ */
+var TH_OPEN = ["<think>", "<|channel>thought"];
+var TH_CLOSE = ["</think>", "<channel|>"];
+var TH_MAX = 0;
+(function () {
+	for (var i = 0; i < TH_OPEN.length; i++)
+		TH_MAX = Math.max(TH_MAX, TH_OPEN[i].length, TH_CLOSE[i].length);
+})();
+
+var thPending = "";	/* text not yet safe to print (may hold a split tag) */
+var thIn = false;	/* inside a thought block? */
+var thEl = null;	/* current <span class="thought"> */
+var thLast = "";	/* last char printed in thought mode */
+
+/* ============================================================
+   SECTION J2: SMALL HELPERS
+   ============================================================ */
+
+/* The input box shows the bare host:port. This helper prepends
+   the scheme only at the moment a fetch is about to be made. */
+function serverURL() {
+	var v = server.value.trim().replace(/\/+$/, "");
+	if (v && v.indexOf("http://") !== 0 && v.indexOf("https://") !== 0)
+		v = "http://" + v;
+	return v;
+}
+function $(id) { return document.getElementById(id); }
+
+function setStatus(msg) {
+	statusEl.textContent = msg;
+}
+
+/* numeric input helper: NaN-safe, so temp "0" stays 0 */
+function num(id, def) {
+	var v = parseFloat($(id).value);
+	return isNaN(v) ? def : v;
+}
+
+function scrollBottom() {
+	output.scrollTop = output.scrollHeight;   /* snap: follow the stream */
+}
+
+/* append a colored span to the output log; returns the span */
+function addSpan(cls, text) {
+	var span = document.createElement("span");
+	span.className = cls;
+	span.textContent = text;
+	output.appendChild(span);
+	scrollBottom();
+	return span;
+}
+
+/* ============================================================
+   SECTION J2b: PERF STAT DISPLAY
+   llama-server reports per-stream-end timings:
+     timings.prompt_per_second     -> pp  (prefill tok/s)
+     timings.predicted_per_second  -> tg  (generation tok/s)
+     timings.tokens_cached         -> ctx numerator (against nCtx)
+   RETENTION RULE: stats are never zeroed after a round. The last
+   nonzero figures stay on screen so the user can appraise the
+   server's performance between rounds.
+   ============================================================ */
+function showStats(pp, tg, cached) {
+	if (typeof pp === "number" && pp > 0)
+		stPP.textContent = "pp: " + Math.round(pp);
+	if (typeof tg === "number" && tg > 0)
+		stTG.textContent = "tg: " + Math.round(tg);
+	if (typeof cached === "number" && cached > 0) {
+		stCTX.textContent = "¢ " + cached
+			+ (nCtx > 0 ? "/" + nCtx : "");
+	}
+}
+
+/* ============================================================
+   SECTION J3: PROMPT BUILDING (Qwen3 wire format)
+   ============================================================ */
+/* render full transcript, ending on assistant: the model speaks next */
+function buildPrompt() {
+	var s = "", i;
+	for (i = 0; i < transcript.length; i++) {
+		s += "<|im_start|>" + transcript[i].role + "\n"
+		   + transcript[i].content + "<|im_end|>\n";
+	}
+	return s + "<|im_start|>assistant\n";
+}
+
+/* ============================================================
+   SECTION J4: OUTPUT DISPLAY
+   User turns: one green span. Assistant turns: grey thought span
+   then bright answer span, created lazily and streamed into.
+   ============================================================ */
+/* user turn: one green block; color alone marks the speaker */
+function logUser(text) {
+	addSpan("user", text + "\n");
+}
+
+/* thought-block printer: handles grey+small rendering, no double linefeeds */
+function thPrint(t) {
+	if (!thIn) {
+		if (t === "") return;
+		if (!answerSpan)
+			answerSpan = addSpan("answer", "");
+		answerSpan.textContent += t;
+		shownAnswer += t.length;
+		scrollBottom();
+		return;
+	}
+	t = t.replace(/\n\n+/g, "\n");	/* thoughts: no double linefeeds, ever */
+	if (thLast === "\n" && t.charAt(0) === "\n")
+		t = t.slice(1);
+	if (t === "") return;
+	thLast = t.charAt(t.length - 1);
+	if (!thEl) {
+		thEl = document.createElement("span");
+		thEl.className = "thought";
+		output.appendChild(thEl);
+		scrollBottom();
+	}
+	thEl.appendChild(document.createTextNode(t));
+	shownThought += t.length;
+	scrollBottom();
+}
+
+/* thought-block feed: buffer text, scan for tags, print safely */
+function thFeed(text) {
+	thPending += text;
+	for (;;) {
+		var at = -1, tag = null, open = false, k, j;
+		for (k = 0; k < TH_OPEN.length; k++) {
+			j = thPending.indexOf(TH_OPEN[k]);
+			if (j >= 0 && (at < 0 || j < at)) { at = j; tag = TH_OPEN[k]; open = true; }
+			j = thPending.indexOf(TH_CLOSE[k]);
+			if (j >= 0 && (at < 0 || j < at)) { at = j; tag = TH_CLOSE[k]; open = false; }
+		}
+		if (tag === null) break;
+		thPrint(thPending.slice(0, at));
+		thPending = thPending.slice(at + tag.length);
+		if (open) {
+			thIn = true;
+			thLast = "\n";	/* eats the linefeed right after the open tag */
+		} else {
+			thIn = false;
+			thEl = null;
+		}
+	}
+	/* print all of pending except a tail that could still grow into a tag */
+	var keep = 0, n;
+	for (n = 1; n < TH_MAX && n <= thPending.length; n++) {
+		var tail = thPending.slice(thPending.length - n);
+		for (k = 0; k < TH_OPEN.length; k++) {
+			if (TH_OPEN[k].indexOf(tail) === 0 || TH_CLOSE[k].indexOf(tail) === 0)
+				keep = n;
+		}
+	}
+	thPrint(thPending.slice(0, thPending.length - keep));
+	thPending = thPending.slice(thPending.length - keep);
+}
+
+function thReset() { thPending = ""; thIn = false; thEl = null; thLast = ""; }
+function thFlush() {
+	thPrint(thPending);	/* leftover half-tag at end of run: just text */
+	thPending = ""; thIn = false; thEl = null;
+}
+
+/* reset per-turn stream state at the start of a generate */
+function beginReply() {
+	reply = "";
+	shownThought = 0;
+	shownAnswer = 0;
+	thoughtSpan = null;
+	answerSpan = null;
+	thReset();
+}
+
+/* ============================================================
+   SECTION J5: SSE PARSER
+   Incremental: buffer chunks, process complete lines, keep the
+   trailing partial line. Emits obj.content per llama-server
+   /completion stream events. The final stream event also carries
+   obj.timings — captured here for the perf stats.
+   Honors obj.stop === true: cancels the reader and stops pulling.
+   ============================================================ */
+function makeSseSink(emit, onTimings, onCache) {
+	var buf = "";
+	return function (chunk) {
+		buf += chunk;
+		var lines = buf.split(/\r\n|\r|\n/);
+		buf = lines.pop();
+		for (var i = 0; i < lines.length; i++) {
+			var line = lines[i];
+			if (line.lastIndexOf("data: ", 0) !== 0) continue;
+			var payload = line.slice(6);
+			if (payload === "[DONE]") continue;
+			var obj;
+			try { obj = JSON.parse(payload); } catch (e) { continue; }
+			if (typeof obj.content === "string")
+				emit(obj.content);
+			if (obj.timings && onTimings)
+				onTimings(obj.timings);
+			if (typeof obj.tokens_cached === "number" && onCache)
+				onCache(obj.tokens_cached);
+		}
+	};
+}
+
+/* ============================================================
+   SECTION J6: ACTIONS (stop / new / generate)
+   ============================================================ */
+function stopGen() {
+	if (!ctrl) return;
+	ctrl.abort();
+	setStatus("stopped");
+	ctrl = null;
+}
+
+function editorKeydown(ev) {
+	if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey
+	 && (ev.key === "d" || ev.key === "D")) {
+		ev.preventDefault();
+		generate();
+	}
+}
+
+function newSession() {
+	if (ctrl) { setStatus("busy — stop first"); return; }
+	var url = serverURL();
+	if (!url) { setStatus("no server url"); return; }
+
+	transcript = [];
+	beginReply();
+	editor.value = "";
+	editor.focus();
+	output.textContent = "";
+	setStatus("clearing…");
+
+	fetch(url + "/slots/0?action=erase", { method: "POST" })
+	.then(function (res) {
+		if (!res.ok)
+			throw new Error("HTTP " + res.status);
+		setStatus("reset/ready");
+	})
+	.catch(function (err) {
+		setStatus("cleared");
+	});
+}
+
+/* ============================================================
+   SECTION J7: MODEL PROBING
+   Fill the model display from /props: basename of model_path.
+   Also captures n_ctx, and extracts end-of-turn tags from
+   chat_template into modelStop (plus the server's own default
+   stop strings), so generate() can hand them back as "stop"
+   for ANY model family.
+   ============================================================ */
+var modelStop = [];	/* dynamic, per-model stop strings */
+
+function probeModel(url) {
+	return fetch(url + "/props")
+	.then(function (res) {
+		if (!res.ok) throw new Error("server said " + res.status);
+		return res.json();
+	})
+	.then(function (p) {
+		/* 1. display name: basename of model_path */
+		var path = p.model_path || "";
+		model.value = path.split("/").pop() || "(unknown model)";
+
+		/* 2. context size for the ctx stat */
+		var dgs = p.default_generation_settings || {};
+		nCtx = dgs.n_ctx || 0;
+
+		/* 3. end-of-turn tags. every <|...|> special token the chat
+		   template mentions, deduped via an object. Over-collecting
+		   is harmless (the server just watches for strings); under-
+		   collecting is what makes models ramble past their turn. */
+		var seen = {};
+		var re = /<\|[^<>|]+\|>/g;
+		var m;
+		while ((m = re.exec(p.chat_template || "")) !== null)
+			seen[m[0]] = 1;
+		/* the server's own defaults join the list */
+		var defs = (dgs.params && dgs.params.stop) || [];
+		for (var i = 0; i < defs.length; i++)
+			seen[defs[i]] = 1;
+		modelStop = Object.keys(seen);
+
+		stCTX.textContent = "¢ 0" + (nCtx > 0 ? "/" + nCtx : "");
+		setStatus("ready");
+	})
+	.catch(function (err) {
+		/* no server, no props: degrade, don't die. generate() still
+		   works, just without dynamic stop tags. */
+		modelStop = [];
+		nCtx = 0;
+		model.value = "(no server)";
+		setStatus("error: " + err.message);
+	});
+}
+
+/* ============================================================
+   SECTION J8: GENERATE
+   Guards first, side effects second. Messages say why nothing
+   happened. One AbortController per generation; stop button
+   aborts it. Dynamic stop tokens from probeModel().
+   ============================================================ */
+function generate() {
+	/* guards */
+	if (ctrl) { setStatus("busy"); return; }
+	var userText = editor.value.trim();
+	if (userText === "") { setStatus("empty prompt"); return; }
+
+	var url = serverURL();
+	if (!url) { setStatus("no server url"); return; }
+
+	/* log user turn */
+	logUser(userText);
+	transcript.push({ role: "user", content: userText });
+	editor.value = "";
+	beginReply();
+
+	ctrl = new AbortController();
+	setStatus("generating");
+
+	fetch(url + "/completion", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		signal: ctrl.signal,
+		body: JSON.stringify({
+			prompt: buildPrompt(),
+			n_predict: parseInt($("n_predict").value, 10) || -1,
+			temperature: num("temp", 1.0),
+			top_p: num("top_p", 0.95),
+			repeat_penalty: num("rp", 1.0),
+			stop: modelStop,	/* dynamic, per model, from /props */
+			stream: true
+		})
+	}).then(function (res) {
+		if (!res.ok) throw new Error("server said " + res.status);
+		return new Promise(function (resolve, reject) {
+			var reader = res.body.getReader();
+			var decoder = new TextDecoder();
+			var sink = makeSseSink(
+				thFeed,	/* emit: feed through thought state machine */
+				function (timings) {	/* onTimings: capture perf stats */
+					showStats(
+						timings.prompt_per_second,
+						timings.predicted_per_second,
+						timings.tokens_cached
+					);
+				},
+				function (cached) {	/* onCache: live ctx display */
+					stCTX.textContent = "¢ " + cached
+						+ (nCtx > 0 ? "/" + nCtx : "");
+				}
+			);
+			function pump() {
+				reader.read().then(function (result) {
+					if (result.done) {
+						resolve();
+						return;
+					}
+					var chunk = decoder.decode(result.value, { stream: true });
+					sink(chunk);
+					pump();
+				}).catch(reject);
+			}
+			pump();
+		});
+	}).then(function () {
+		thFlush();	/* close any open thought block */
+		transcript.push({ role: "assistant", content: reply });
+		output.appendChild(document.createTextNode("\n"));
+		scrollBottom();
+		setStatus("done");
+	}).catch(function (err) {
+		thFlush();
+		if (err.name === "AbortError") {
+			output.appendChild(document.createTextNode("\n"));
+			scrollBottom();
+			setStatus("stopped");
+		} else {
+			setStatus("error: " + err.message);
+			console.error(err);
+		}
+	}).then(function () {
+		ctrl = null;	/* single cleanup point: success, error AND abort */
+	});
+}
+
+/* ============================================================
+   SECTION J9: MAIN — element wiring; must be the LAST statement
+   ============================================================ */
+function main() {
+	editor   = $("editor");
+	output   = $("output");
+	statusEl = $("status");
+	server   = $("server");
+	model    = $("model");
+	send     = $("send");
+	stopbtn  = $("stopbtn");
+	newbtn   = $("newbtn");
+	stPP     = $("st_pp");
+	stTG     = $("st_tg");
+	stCTX    = $("st_ctx");
+	send.onclick    = generate;
+	stopbtn.onclick = stopGen;
+	newbtn.onclick  = newSession;
+	editor.addEventListener("keydown", editorKeydown);
+	probeModel(serverURL());
+	editor.focus();
+	setStatus("ready");
+}
+main();
+</script>
+</body>
+</html>
