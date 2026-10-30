@@ -1,6 +1,6 @@
 # bloppadd
 
-***bloppadd*** is the KISS client to llama.cpp's **llama-server**.
+***bloppadd*** is the 25kB KISS client to llama.cpp's **llama-server**.
 
 ![image](https://github.com/clort81/bloppadd/blob/main/bloppadd.gif)
 
