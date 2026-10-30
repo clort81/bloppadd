@@ -5,6 +5,7 @@
 ![image](https://github.com/clort81/bloppadd/blob/main/bloppadd.gif)
 
 Type things, hit Ctrl-D to send, get responses back.  Paste to input box, copy from output box.
+**NEW!** Undo+Edit last, Save Last, Image Upload
 
 ## Why this thing? 
 
@@ -16,7 +17,7 @@ Enter **bloppadd!** because:
 - browsers already have a text editor (it's called `<textarea>`)
 - browsers already know how to make HTTP requests (it's called `fetch()`)
 
-bloppadd is like 22kB.  It doesn't track your keystrokes and slow down to 0.4 chars per second like llama.cpp WebUI. It doesn't need `npm install`.  No Node.js. No transpilation. No bundling. No virtual DOM. No dependencies to audit for security vulnerabilities every tuesday.
+bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 chars per second like llama.cpp WebUI. It doesn't need `npm install`.  No Node.js. No transpilation. No bundling. No virtual DOM. No dependencies to audit for security vulnerabilities every tuesday.
 
 **"But React is the future!" Yeah great, okay ... okay.. bye.**
 
