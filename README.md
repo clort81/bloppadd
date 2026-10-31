@@ -24,14 +24,14 @@ bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 ch
 
 ## usage
 
-1. start llama-server
+1. start llama-server (defaults to deepseek reasoning)
 2. open bloppadd.html in firefox or chrome
 3. type stuff
 4. Ctrl+D to generate
 
-Problems? The italians decided that since stupid users open malicious locally stored .html programs they should block those files from working.  
-Andrea Marchesini (baku) and landed in Firefox 68 (July 2019) in response to CVE-2019-11730, reported by security researcher Luigi Gubello.
-If you've reviewed this and decided it's not a malicious program, then in Firefox about:config → security.fileuri.strict_origin_policy → false
+## security
+
+This program doesnt exfiltrate your data but you should probably verify that.  If you encounter CORS Access Problems, your browser security might require serving the page in a minimal webserver. Some people click on unsafe local .html files which exfiltrate your local data to sites on the internet.  You can try in Firefox config → security.fileuri.strict_origin_policy → false
 
 ## features
 
