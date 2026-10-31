@@ -32,7 +32,7 @@ bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 ch
 
 ## security
 
-This program doesnt exfiltrate your data but you should probably verify that.  If you encounter CORS Access Problems, your browser security might require serving the page in a minimal webserver. Some people click on unsafe local .html files which exfiltrate your local data to sites on the internet.  You can try in Firefox config → security.fileuri.strict_origin_policy → false
+This program doesnt exfiltrate your data but you should probably verify that.  If you encounter CORS Access Problems, your browser security might require serving the page in a minimal webserver. [Cors access restrictions were introduced because some people click on malicious local .html files which exfiltrate user data to remote sites].  You can try disabling origin policy restrictions for local files in Firefox config → security.fileuri.strict_origin_policy → false
 
 ## features
 
