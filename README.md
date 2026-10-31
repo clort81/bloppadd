@@ -27,7 +27,7 @@ bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 ch
 1. start llama-server (defaults to deepseek reasoning)
 2. open bloppadd.html in firefox or chrome
 3. type stuff
-4. Ctrl+D to generate
+4. Click 'send' or Ctrl+D to generate
 
 ## security
 
