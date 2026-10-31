@@ -49,8 +49,8 @@ This program doesnt exfiltrate your data but you should probably verify that.  I
 | thing | mikupad | bloppadd |
 |-------|---------|----------|
 | size | 400kB+ | 24.6kB |
-| build required | yes (compile.sh) [[1]] | no |
-| framework | ReactJS [[1]] | none |
+| build required | yes (compile.sh) | no |
+| framework | ReactJS | none |
 | dependencies | React, build tools | browser |
 | loads fast | no | yes |
 | will survive npm apocalypse | no | yes |
