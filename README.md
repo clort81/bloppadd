@@ -28,6 +28,7 @@ bloppadd is like 25kB.  It doesn't track your keystrokes and slow down to 0.4 ch
 2. open bloppadd.html in firefox or chrome
 3. type stuff
 4. Click 'send' or Ctrl+D to generate
+5. Like the result? You can click 'save' to save it to a file. If you hate it, click 'undo' to edit your prompt and retry.
 
 ## security
 
