@@ -1,26 +1,24 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>bloppadd</title>
+<title>bloppadn</title>
 <style>
 /* ============================================================
    SECTION 1: GLOBAL PALETTE
    All colors defined once here. Tweak values, not rules.
    ============================================================ */
 :root {
-	--usergreen:  #66cc33;   /* user text: editor + user turns in output */
-	--servltgrey: #e8e8e8;   /* assistant answer text */
-	--servdkgrey: #9090a0;   /* assistant reasoning text (grey, small) */
-	--panebg:     #2a1a12;   /* output/editor surroundings */
-	--setbg:      #12141c;   /* settings panel background */
-	--setfg:      #9ca0c4;   /* settings panel text */
-	--edge:       #4a5c66;   /* outlines around inputs/buttons */
+	--usergreen:  #66cc33;
+	--servltgrey: #e8e8e8;
+	--servdkgrey: #9090a0;
+	--panebg:     #2a1a12;
+	--setbg:      #12141c;
+	--setfg:      #9ca0c4;
+	--edge:       #4a5c66;
+	--trimwarn:   #ffcc00;
 }
 
 /* ============================================================
    SECTION 2: PAGE FRAME
-   Fixed-height, non-scrolling canvas. Sub-regions scroll instead;
-   the browser scrollbar never appears.
-   body is a flex COLUMN:  [ output ]  then  [ bottom ] pinned below.
    ============================================================ */
 html, body {
 	height: 100%;
@@ -36,10 +34,7 @@ body {
 }
 
 /* ============================================================
-   SECTION 3: SERVER OUTPUT WINDOW (top region)
-   Bounded flex item with its own scrollbar. Contains colored
-   <span> elements: .user / .thought / .answer. Color alone marks
-   the speaker and content type.
+   SECTION 3: SERVER OUTPUT WINDOW
    ============================================================ */
 #output {
 	flex: 1;
@@ -59,9 +54,7 @@ body {
 #output .answer  { color: var(--servltgrey); }
 
 /* ============================================================
-   SECTION 4: TEXT-INPUT BOX (bottom-left region)
-   #bottom is the fixed-height footer. #edwrap stretches flush with
-   the settings column; the textarea fills #edwrap.
+   SECTION 4: TEXT-INPUT BOX
    ============================================================ */
 #bottom {
 	display: flex;
@@ -73,10 +66,47 @@ body {
 	flex: 1;
 	min-width: 0;
 	display: flex;
+	flex-direction: column;
 	font: 16px monospace;
 	overflow: hidden;
-	white-space: pre-wrap;
-	word-wrap: break-word;
+}
+
+#imgstrip {
+	display: none;
+	align-items: center;
+	gap: 0.4em;
+	padding: 0.2em 0.3em;
+	background: #111;
+	border-bottom: 1px solid var(--edge);
+	font: 12px monospace;
+	color: var(--setfg);
+}
+
+#imgstrip img {
+	max-height: 48px;
+	max-width: 64px;
+	object-fit: contain;
+	border: 1px solid var(--edge);
+}
+
+#imgstrip .imgname {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#imgstrip .imgclear {
+	cursor: pointer;
+	padding: 0 0.3em;
+	border: 1px solid var(--edge);
+	background: var(--setbg);
+	color: var(--setfg);
+	font: 12px monospace;
+}
+
+#imgstrip .imgclear:hover {
+	border-color: var(--servltgrey);
 }
 
 #editor {
@@ -88,7 +118,6 @@ body {
 	overflow-y: auto;
 	display: block;
 	width: 100%;
-	height: 100%;
 	flex: 1;
 	box-sizing: border-box;
 	border: 0;
@@ -98,9 +127,7 @@ body {
 }
 
 /* ============================================================
-   SECTION 5: SETTINGS BOX (bottom-right region)
-   Narrow flex column: server, model, 2x2 numeric grid, buttons,
-   status box (status line + live perf stats).
+   SECTION 5: SETTINGS BOX
    ============================================================ */
 #settings {
 	width: 13%;
@@ -176,6 +203,11 @@ body {
 	text-overflow: clip;
 }
 
+#trimwarn {
+	color: var(--trimwarn);
+	font-weight: bold;
+}
+
 .stat {
 	display: block;
 	padding: 0.1em 0.15em;
@@ -208,12 +240,15 @@ button:hover {
 
 <!-- ============================================================
      HTML LAYOUT
-     [ #output                       ]  server output, own scrollbar
-     [ #bottom: #edwrap | #settings ]  editor + settings, pinned bottom
      ============================================================ -->
 <div id="output"></div>
 <div id="bottom">
 	<div id="edwrap">
+		<div id="imgstrip">
+			<img id="imgthumb" src="" alt="">
+			<span class="imgname" id="imgname"></span>
+			<span class="imgclear" id="imgclear">✕</span>
+		</div>
 		<textarea id="editor" spellcheck="false"> </textarea>
 	</div>
 
@@ -236,11 +271,11 @@ button:hover {
 		<div id="controls2">
 			<button id="btn4">undo</button>
 			<button id="btn5">save</button>
-			<button id="btn6">img</button>
+			<button id="btn6">upl</button>
 		</div>
 
 		<div id="statusbox">
-			<div id="status">ready</div>
+			<div id="status"><span id="trimwarn"></span><span id="statustext">ready</span></div>
 			<div id="statrow">
 				<span class="stat" id="st_pp">pp:</span>
 				<span class="stat" id="st_tg">tg:</span>
@@ -249,72 +284,95 @@ button:hover {
 		</div>
 	</div>
 </div>
+
+<input type="file" id="imgfile"
+       accept="image/*,text/*,.py,.rs,.go,.ts,.c,.cpp,.h,.hpp,.java,.rb,.sh,.json,.toml,.tex,.sql,.swift,.kt,.scala,.pl,.lua,.php,.m,.cs,.r,.jl,.zig,.ex,.erl,.dart,.groovy,.cmake,.make,.conf,.cfg,.env,.dockerfile"
+       style="display:none">
+
 <script>
 "use strict";
 
 /* ============================================================
-   bloppadk: the OpenAI-compatible turn.
+   bloppadn: the OpenAI-compatible turn.
 
    WHAT DIED AND WHY:
      - buildPrompt() and the hardcoded Qwen wire format: the server
-       now renders every family's chat template itself, from the
-       Jinja template inside the GGUF.
+       now renders every family's chat template itself.
      - The TH_OPEN/TH_CLOSE tag table and the thFeed/thPrint state
        machine: with --reasoning-format auto|deepseek the server
-       strips reasoning blocks and returns them OUT OF BAND in
-       delta.reasoning_content. Split-tag buffering is now a C++
-       problem, solved once, for all clients.
+       strips reasoning blocks and returns them OUT OF BAND.
      - modelStop harvesting from chat_template: the server knows its
-       own EOS and turn-end strings. Stop tokens are its job.
+       own EOS and turn-end strings.
 
    WHAT SURVIVED:
      - The shell, the palette, the guards, Ctrl+D, the AbortController,
-       the perf stats with their retention rule, /props probing for
-       name + n_ctx, and the slot-erase reset.
+       the perf stats with their retention rule, /props probing,
+       and the slot-erase reset.
      - The philosophy: one file, no frameworks, no build step.
 
    SERVER SIDE, REQUIRED FOR GREY THOUGHTS:
      llama-server --reasoning-format auto   (or deepseek)
-   With --reasoning-format none, reasoning arrives in-band inside
-   delta.content and will render as part of the answer. Probe your
-   build:  llama-server --help 2>&1 | grep reasoning-format
 
-   CONTEXT-USED DISPLAY (¢):
-     Anchored to server truth: lastServerPromptTokens from the
-     previous turn's usage.prompt_tokens + chars/4 for new text.
-     Live: ticks during streaming via updateCtxLive().
-     Exact: snaps to usage.total_tokens on the final chunk.
-     Purpose: warn the user when the context window is approaching.
+   PERF STATS (pp / tg):
+     pp: computed from timings.prompt_n / timings.prompt_ms
+         (final chunk only). Shows "pp: …" from request start.
+     tg: DURING streaming — 800 ms rolling window (instantaneous).
+         AT stream end — overridden with the MEAN for the whole
+         round: completion_tokens / elapsed_gen_seconds.
+         This matches the server log's "tg" column (cumulative avg).
 
-   SLOT TRACKING:
-     probeSlot() queries GET /slots, picks the first idle slot.
-     slot_id is sent in the request body to pin the conversation.
-     Erase calls target /slots/{id}?action=erase.
+   SAVE (btn5):
+     Downloads the most recent assistant reply as a plain .txt
+     file. Content is the raw answer text — no reasoning, no tags.
 
-   LIVE TG:
-     During streaming, updateCtxLive() computes a rolling
-     tokens/sec over a 800 ms window. The final chunk's
-     timings.predicted_per_second snaps to the server's number.
+   FILE UPLOAD (btn6, "upl"):
+     Clicking "upl" opens a file picker. Two paths:
 
-   UNDO:
-     Removes the last complete round (user prompt + assistant reply
-     + reasoning) from the DOM, the transcript, and the server KV
-     (via slot erase). The user's prompt text is restored into the
-     editor for editing and re-submission.
+     IMAGE (png, jpg, gif, webp, bmp, tiff, ico):
+       Downscaled to 768 px max, encoded as a base64 data URL,
+       stored in pendingImage. A thumbnail appears in #imgstrip
+       above the editor. On the next generate(), the user message
+       is sent as a multi-part content array (OpenAI vision
+       format). The image is cleared after submission or on "new".
+       Requires a vision-capable model. 15 MB limit.
 
-   SAVE: 
-     Saves the most recent round of LLM output to text.
+     TEXT (code, markdown, config, logs, any text file):
+       Read via FileReader.readAsText() and appended directly to
+       the editor textarea, wrapped in ```filename fences. The
+       user can append multiple files and type between them to
+       build a long prompt. On send, the entire editor content
+       (typed text + all appended files) is sent as a single
+       string. No multi-part array. No vision API. The model
+       reads the file contents as plain text in the prompt.
+       2 MB limit.
 
-   IMG:
-     Uploads an image to the multimodal llm (WIP)
-    ============================================================ */
+     BINARY / UNKNOWN:
+       If the file contains null bytes (0x00) in its content,
+       it is rejected with a status message.
+
+   TRIMMING AND THE ⓩ WARNING:
+     When the estimated token count of the transcript (including
+     the just-submitted prompt) exceeds 95% of nCtx, old messages
+     are dropped from the front of the transcript until the
+     estimate is below 60% of nCtx. The #output display is NOT
+     modified — the user can still scroll up and read old
+     messages. The model, however, no longer has them in its
+     context.
+
+     A bright yellow ⓩ (U+24E9) appears to the left of the
+     status text whenever a trim has occurred. It persists until
+     the user hits "new" (which clears the session and the
+     warning). This alerts the user that early context has been
+     lost and the model may have "forgotten" grounding information
+     from the beginning of the conversation.
+   ============================================================ */
 
 /* ============================================================
    SECTION J1: GLOBAL STATE
-   Declared exactly once. ctrl == null means idle.
    ============================================================ */
 var editor, output, statusEl, server, model, send, stopbtn, newbtn;
 var stPP, stTG, stCTX;
+var statustext, trimwarn;
 var nCtx = 0;
 var ctrl = null;
 var transcript = [];
@@ -326,24 +384,35 @@ var finishReason = "";
 var promptEst = 0;
 var thoughtChars = 0;
 
-/* --- baseline re-normalization --- */
-var lastServerPromptTokens = 0;   /* ground truth from last finished turn */
+var lastServerPromptTokens = 0;
+var slotId = 0;
+var turnMarks = [];
 
-/* --- slot tracking --- */
-var slotId = null;                /* pinned server slot, from /slots probe */
+var tgLastTime = 0;
+var tgLastTokens = 0;
 
-/* --- undo / cut --- */
-var turnMarks = [];               /* indices into output.childNodes per turn */
+/* --- mean TG tracking --- */
+var genStartTime = 0;
+var completionTokens = 0;
 
-/* --- live TG --- */
-var tgLastTime = 0;               /* performance.now() of last TG sample */
-var tgLastTokens = 0;             /* completion token estimate at last sample */
+/* --- file upload state (images only; text files go into the editor) --- */
+var pendingImage = null;
+var imgstrip, imgthumb, imgname, imgclear, imgfile;
+
+/* --- rAF batching: accumulate text, flush once per frame --- */
+var pendingThought = "";
+var pendingAnswer  = "";
+var rafPending     = false;
+var flushTimer     = 0;
+var answerTextNode = null;
+var thoughtTextNode = null;
+
+/* --- auto-scroll: only follow if user is near the bottom --- */
+var autoScroll = true;
 
 /* ============================================================
    SECTION J2: SMALL HELPERS
    ============================================================ */
-
-/* The input box shows bare host:port; prepend scheme at fetch time. */
 function serverURL() {
 	var v = server.value.trim().replace(/\/+$/, "");
 	if (v && v.indexOf("http://") !== 0 && v.indexOf("https://") !== 0)
@@ -353,10 +422,9 @@ function serverURL() {
 function $(id) { return document.getElementById(id); }
 
 function setStatus(msg) {
-	statusEl.textContent = msg;
+	statustext.textContent = msg;
 }
 
-/* numeric input helper: NaN-safe, so temp "0" stays 0 */
 function num(id, def) {
 	var v = parseFloat($(id).value);
 	return isNaN(v) ? def : v;
@@ -366,57 +434,89 @@ function scrollBottom() {
 	output.scrollTop = output.scrollHeight;
 }
 
-/* append a colored span to the output log; returns the span */
 function addSpan(cls, text) {
 	var span = document.createElement("span");
 	span.className = cls;
 	span.textContent = text;
 	output.appendChild(span);
-	scrollBottom();
 	return span;
 }
 
 /* ============================================================
    SECTION J2b: PERF STAT DISPLAY
-   Two possible sources, whichever the server provides:
-     o.timings (llama.cpp extension on the final chunk):
-       prompt_per_second -> pp, predicted_per_second -> tg.
-     o.usage (OpenAI standard, requires stream_options below):
-       prompt_tokens, completion_tokens, total_tokens.
-   RETENTION RULE: stats are never zeroed after a round. The last
-   nonzero figures stay on screen between rounds.
-   Live TG is handled in updateCtxLive(); the final chunk's
-   timings.predicted_per_second overrides it with the exact number.
    ============================================================ */
 function showStats(pp, tg) {
 	if (typeof pp === "number" && pp > 0)
-		stPP.textContent = "pp: " + Math.round(pp);
+		stPP.textContent = "pp:" + Math.round(pp);
 	if (typeof tg === "number" && tg > 0)
-		stTG.textContent = "tg: " + Math.round(tg);
+		stTG.textContent = "tg:" + Math.round(tg);
+}
+
+/* Compute and display the mean TG for the completed round.
+   Called at stream end (both success and abort paths). */
+function showMeanTg() {
+	if (genStartTime === 0) return;
+	var elapsed = (performance.now() - genStartTime) / 1000;
+	if (elapsed <= 0) return;
+	var tokens;
+	if (completionTokens > 0) {
+		tokens = completionTokens;
+	} else {
+		tokens = Math.ceil((reply.length + thoughtChars) / 4);
+	}
+	if (tokens <= 0) return;
+	var avg = tokens / elapsed;
+	stTG.textContent = "tg:" + Math.round(avg);
 }
 
 /* ============================================================
    SECTION J3: HISTORY AND ITS TRIMMING
-   The transcript is a projection, not the screen: trimming it does
-   not erase anything the user can see. Truncation invalidates the
-   server's KV prefix from token 0, so it costs one full re-prefill
-   ("the cliff"). Policy: pay the cliff RARELY and in BIG chunks —
-   drop oldest messages until we sit at 60% of budget, not one turn
-   per overflow. Token estimate is chars/4: crude, good enough to
-   decide when to jump.
 
-   Returns true if trimming occurred (baseline is now stale).
+   BUDGET: 95% of nCtx. If the estimated token count of the
+   transcript (including the just-submitted user prompt) exceeds
+   this, trimming is triggered.
+
+   TARGET: 60% of nCtx. Old messages are dropped from the front
+   of the transcript until the estimate is below this.
+
+   RATIONALE: The 95% threshold was chosen (up from the original
+   75%) because the user needs maximum context available for
+   long multi-file prompts. Trimming at 75% was too aggressive
+   and caused the model to lose early grounding information
+   before the user realized it. The 60% target ensures a
+   substantial re-prefill margin so the next turn is not
+   immediately at the edge again.
+
+   The trim is computed AFTER the new user prompt has been
+   pushed onto the transcript, so a long prompt can trigger a
+   trim while a short one will not.
+
+   VISUAL WARNING: When a trim occurs, a bright yellow ⓩ
+   (U+24E9) is displayed to the left of the status text. It
+   persists until "new" is pressed.
    ============================================================ */
+function contentChars(msg) {
+	if (typeof msg.content === "string") return msg.content.length;
+	var c = 0;
+	for (var i = 0; i < msg.content.length; i++) {
+		if (msg.content[i].type === "text")
+			c += msg.content[i].text.length;
+		else
+			c += 4000;
+	}
+	return c;
+}
+
 function estTokens() {
 	var c = 0;
 	for (var i = 0; i < transcript.length; i++)
-		c += transcript[i].content.length;
+		c += contentChars(transcript[i]);
 	return Math.ceil(c / 4);
 }
 
 function trimTranscript() {
 	if (nCtx <= 0) return false;
-	var budget = Math.floor(nCtx * 0.75);
+	var budget = Math.floor(nCtx * 0.95);
 	if (estTokens() <= budget) return false;
 	var target = Math.floor(nCtx * 0.60);
 	var trimmed = false;
@@ -426,6 +526,7 @@ function trimTranscript() {
 	}
 	if (trimmed) {
 		lastServerPromptTokens = 0;
+		trimwarn.textContent = "\u24E9";
 		console.log("history trimmed to", transcript.length,
 			"messages; baseline reset, next turn re-anchors");
 	}
@@ -434,17 +535,11 @@ function trimTranscript() {
 
 /* ============================================================
    SECTION J4: OUTPUT DISPLAY
-   User turns: one green span. Assistant turns: grey thought span
-   then bright answer span, created lazily and streamed into.
-   Reasoning arrives tag-free from the server; we still tidy its
-   whitespace: single linefeeds render, runs collapse to one.
-
-   The ¢ context stat ticks live during streaming via updateCtxLive().
-   Live TG is computed in the same pass.
    ============================================================ */
 function logUser(text) {
 	turnMarks.push(output.childNodes.length);
 	addSpan("user", text + "\n");
+	if (autoScroll) scrollBottom();
 }
 
 function appendThought(t) {
@@ -452,37 +547,29 @@ function appendThought(t) {
 	if (thoughtTail === "\n" && t.charAt(0) === "\n")
 		t = t.slice(1);
 	if (t === "") return;
+	if (genStartTime === 0)
+		genStartTime = performance.now();
 	thoughtTail = t.charAt(t.length - 1);
 	thoughtChars += t.length;
-	if (!thoughtSpan)
-		thoughtSpan = addSpan("thought", "");
-	thoughtSpan.textContent += t;
-	scrollBottom();
-	updateCtxLive();
+	pendingThought += t;
+	scheduleFlush();
 }
 
 function appendAnswer(t) {
 	if (t === "") return;
+	if (genStartTime === 0)
+		genStartTime = performance.now();
 	reply += t;
-	if (!answerSpan)
-		answerSpan = addSpan("answer", "");
-	answerSpan.textContent += t;
-	scrollBottom();
-	updateCtxLive();
+	pendingAnswer += t;
+	scheduleFlush();
 }
 
-/* Live context-used estimate + live TG.
-   Called on every streamed chunk.
-   ¢: promptEst + completion chars/4.
-   TG: rolling tokens/sec over 800 ms window.
-   Snaps to exact usage.total_tokens on the final chunk (in the sink). */
 function updateCtxLive() {
 	if (nCtx <= 0) return;
 	var completionEst = Math.ceil((reply.length + thoughtChars) / 4);
 	var est = promptEst + completionEst;
 	stCTX.textContent = "¢ " + est + "/" + nCtx;
 
-	/* --- live TG --- */
 	var now = performance.now();
 	if (tgLastTime === 0) {
 		tgLastTime = now;
@@ -494,14 +581,13 @@ function updateCtxLive() {
 		var delta = completionEst - tgLastTokens;
 		if (delta > 0) {
 			var rate = delta / dt;
-			stTG.textContent = "tg: " + Math.round(rate);
+			stTG.textContent = "tg:" + Math.round(rate);
 		}
 		tgLastTime = now;
 		tgLastTokens = completionEst;
 	}
 }
 
-/* reset per-turn stream state at the start of a generate */
 function beginReply() {
 	reply = "";
 	thoughtChars = 0;
@@ -512,12 +598,132 @@ function beginReply() {
 	finishReason = "";
 	tgLastTime = 0;
 	tgLastTokens = 0;
+	genStartTime = 0;
+	completionTokens = 0;
+	pendingThought = "";
+	pendingAnswer  = "";
+	thoughtTextNode = null;
+	answerTextNode  = null;
+}
+
+/* ============================================================
+   SECTION J4b: rAF FLUSH — BATCHED DOM WRITES
+
+   WHY THIS EXISTS (the 2025-06 crash):
+
+   A 100k-token paste into the editor, followed by a ~28 kB
+   assistant reply, caused Firefox ESR to crash with an OOM in
+   the renderer process. The output window visibly degraded
+   from per-token updates to "chunks of two paragraphs" just
+   before the tab died.
+
+   ROOT CAUSE:
+
+   Every SSE token (llama.cpp emits one token per chunk, 1–4
+   chars) triggered this sequence in appendAnswer():
+
+       answerSpan.textContent += t      // O(n) string re-serialize
+       scrollBottom()                   // scrollHeight = sync reflow
+       updateCtxLive()                  // stCTX.textContent = DOM write
+
+   For a 28 kB reply that is ~10 000 SSE chunks. Each chunk
+   forced a full synchronous reflow of the #output div, which
+   by then contained 130+ kB of pre-wrap monospace text (the
+   100k-token user span + the growing reply). Each reflow
+   re-wraps every line. Ten thousand reflows on a 130 kB
+   pre-wrap div is catastrophic: the main thread is in layout
+   code 99% of the time, the compositor can't paint on
+   schedule (hence the visible "chunked" updates as frames
+   are coalesced), and the per-chunk text-node allocations
+   outpace Gecko's GC. Firefox ESR's more conservative GC
+   tuning (fewer aggressive collections, to avoid web jank)
+   makes it more susceptible than current Firefox.
+
+   THE FIX:
+
+   Accumulate streamed text in plain JS strings (cheap,
+   rope-based in SpiderMonkey) and write to the DOM at most
+   once per animation frame via requestAnimationFrame. Ten
+   thousand mutations become ~600 (one per 16 ms frame).
+   Within each frame, Text.appendData() extends the existing
+   text node in place (amortized O(1)) instead of
+   textContent += which replaces the entire node's data
+   (O(n) copy). The scrollHeight read and the context-counter
+   write happen once per frame, not once per token.
+
+   THIS IS NOT A "PERFORMANCE OPTIMIZATION." Without it,
+   the renderer process runs out of memory on large replies.
+   It is a correctness fix for the streaming path.
+
+   SECOND-ROUND BUG (fixed 2025-06, same day):
+   The first version of flushDOM used `span.firstChild` to
+   obtain the text node. Setting `span.textContent = ""`
+   creates NO child nodes, so `firstChild` was null and
+   `appendData` threw. The fix is to explicitly create a
+   Text node with document.createTextNode("") and append it
+   to the span. See flushDOM below.
+
+   THIRD-ROUND BUG (fixed 2025-06):
+   requestAnimationFrame is throttled or paused in hidden
+   tabs. A long reply in a background tab could accumulate
+   the entire response in pendingAnswer before a single
+   flushDOM ran, producing one massive appendData + reflow
+   when the tab became visible. A 250 ms setTimeout fallback
+   and a visibilitychange listener ensure the buffer is
+   drained even when rAF is starved.
+   ============================================================ */
+function scheduleFlush() {
+	if (!rafPending) {
+		rafPending = true;
+		requestAnimationFrame(flushDOM);
+	}
+	if (!flushTimer) {
+		flushTimer = setTimeout(function () {
+			flushTimer = 0;
+			if (rafPending) flushDOM();
+		}, 250);
+	}
+}
+
+function flushDOM() {
+	rafPending = false;
+	if (flushTimer) {
+		clearTimeout(flushTimer);
+		flushTimer = 0;
+	}
+
+	var wrote = false;
+
+	if (pendingThought !== "") {
+		if (!thoughtTextNode) {
+			thoughtSpan = addSpan("thought", "");
+			thoughtTextNode = document.createTextNode("");
+			thoughtSpan.appendChild(thoughtTextNode);
+		}
+		thoughtTextNode.appendData(pendingThought);
+		pendingThought = "";
+		wrote = true;
+	}
+
+	if (pendingAnswer !== "") {
+		if (!answerTextNode) {
+			answerSpan = addSpan("answer", "");
+			answerTextNode = document.createTextNode("");
+			answerSpan.appendChild(answerTextNode);
+		}
+		answerTextNode.appendData(pendingAnswer);
+		pendingAnswer = "";
+		wrote = true;
+	}
+
+	if (wrote) {
+		updateCtxLive();
+		if (autoScroll) scrollBottom();
+	}
 }
 
 /* ============================================================
    SECTION J4c: UNDO / CUT — DOM REMOVAL
-   Removes the last n turn-pairs from the output DOM.
-   turnMarks holds the childNode index where each user span begins.
    ============================================================ */
 function removeLastTurns(n) {
 	while (n > 0 && turnMarks.length > 0) {
@@ -530,12 +736,7 @@ function removeLastTurns(n) {
 }
 
 /* ============================================================
-   SECTION J5: SSE FRAMING (OpenAI chat chunk format)
-   Lines are "data: {json}", terminated by "data: [DONE]". Chunk
-   shape: {choices:[{delta:{content, reasoning_content},
-   finish_reason}]}; the final chunk (with stream_options below)
-   carries {usage:{...}} and, on llama.cpp, may carry {timings}.
-   The sink only frames; generate() interprets.
+   SECTION J5: SSE FRAMING
    ============================================================ */
 function makeSseSink(onObj) {
 	var buf = "";
@@ -545,8 +746,8 @@ function makeSseSink(onObj) {
 		buf = lines.pop();
 		for (var i = 0; i < lines.length; i++) {
 			var line = lines[i];
-			if (line.lastIndexOf("data: ", 0) !== 0) continue;
-			var payload = line.slice(6);
+			if (!line.startsWith("data:")) continue;
+			var payload = line.slice(5).trimStart();
 			if (payload === "[DONE]") continue;
 			var obj;
 			try { obj = JSON.parse(payload); } catch (e) { continue; }
@@ -556,18 +757,17 @@ function makeSseSink(onObj) {
 }
 
 /* ============================================================
-   SECTION J6: ACTIONS (stop / new / undo / save / img / keys)
+   SECTION J6: ACTIONS
    ============================================================ */
 function stopGen() {
 	if (!ctrl) return;
 	ctrl.abort();
-	setStatus("stopped");
-	ctrl = null;
+	setStatus("stopping…");
 }
 
 function editorKeydown(ev) {
 	if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey
-	 && (ev.key === "d" || ev.key === "D")) {
+	 && (ev.key === "d" || ev.key === "D" || ev.key === "Enter")) {
 		ev.preventDefault();
 		generate();
 	}
@@ -582,46 +782,47 @@ function newSession() {
 	turnMarks = [];
 	lastServerPromptTokens = 0;
 	beginReply();
+	clearPendingImage();
+	trimwarn.textContent = "";
 	editor.value = "";
 	editor.focus();
 	output.textContent = "";
+	autoScroll = true;
 	setStatus("clearing…");
 
-	var eraseUrl = url + "/slots/" + (slotId !== null ? slotId : 0)
-		+ "?action=erase";
+	var eraseUrl = url + "/slots/" + slotId + "?action=erase";
 	fetch(eraseUrl, { method: "POST" })
 	.then(function (res) {
 		if (!res.ok) throw new Error("HTTP " + res.status);
-		setStatus("reset/ready" + (slotId !== null ? " · slot " + slotId : ""));
+		setStatus("reset/ready · slot " + slotId);
 	})
-	.catch(function (err) {
+	.catch(function () {
 		setStatus("cleared");
 	});
 }
 
-/* Undo the last complete round:
-   1. Save the user prompt text (second-to-last transcript entry).
-   2. Pop assistant (if present) and user from transcript.
-   3. Remove the DOM nodes for that turn.
-   4. Reset the token baseline.
-   5. Erase the server slot so KV state matches the trimmed history.
-   6. Restore the user text into the editor and focus it.
-   ============================================================ */
 function undoLast() {
 	if (ctrl) { setStatus("busy — stop first"); return; }
+	if (transcript.length === 0) { setStatus("nothing to undo"); return; }
 	if (turnMarks.length === 0) { setStatus("nothing to undo"); return; }
 
-	/* grab the user text before we pop it */
 	var savedText = "";
 	var i = transcript.length - 1;
-	/* walk back to find the user message (may be last if no assistant
-	   reply was recorded, e.g. aborted before any tokens) */
 	while (i >= 0 && transcript[i].role === "assistant")
 		i--;
-	if (i >= 0 && transcript[i].role === "user")
-		savedText = transcript[i].content;
+	if (i >= 0 && transcript[i].role === "user") {
+		var c = transcript[i].content;
+		if (typeof c === "string") {
+			savedText = c;
+		} else if (Array.isArray(c)) {
+			var parts = [];
+			for (var j = 0; j < c.length; j++) {
+				if (c[j].type === "text") parts.push(c[j].text);
+			}
+			savedText = parts.join("\n");
+		}
+	}
 
-	/* pop from transcript: assistant (if any), then user */
 	if (transcript.length > 0
 	 && transcript[transcript.length - 1].role === "assistant")
 		transcript.pop();
@@ -629,46 +830,169 @@ function undoLast() {
 	 && transcript[transcript.length - 1].role === "user")
 		transcript.pop();
 
-	/* strip the DOM */
 	removeLastTurns(1);
 	lastServerPromptTokens = 0;
 
-	/* tell the server to forget */
 	var url = serverURL();
-	if (url && slotId !== null) {
+	if (url) {
 		fetch(url + "/slots/" + slotId + "?action=erase",
 			{ method: "POST" })
 		.then(function () {})
 		.catch(function () {});
 	}
 
-	/* restore the prompt into the editor */
 	editor.value = savedText;
 	editor.focus();
-	/* place cursor at end of restored text */
 	editor.selectionStart = editor.selectionEnd = savedText.length;
 
 	setStatus("undone");
 }
 
-/* Placeholder: save transcript to file. Not yet implemented. */
-function saveTranscript() {
-	setStatus("save: not yet");
+/* ============================================================
+   SECTION J6a: SAVE — most recent reply as .txt
+   ============================================================ */
+function saveLastReply() {
+	if (reply === "") { setStatus("nothing to save"); return; }
+
+	var blob = new Blob([reply], { type: "text/plain" });
+	var url = URL.createObjectURL(blob);
+	var a = document.createElement("a");
+	a.href = url;
+	a.download = "bloppadn_"
+		+ model.value.replace(/[^a-zA-Z0-9_-]/g, "_")
+		+ "_" + new Date().toISOString().replace(/[:.]/g, "-")
+		+ ".txt";
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+
+	setStatus("saved reply");
 }
 
-/* Placeholder: render output as image. Not yet implemented. */
-function exportImage() {
-	setStatus("img: not yet");
+/* ============================================================
+   SECTION J6b: FILE UPLOAD (image + text)
+
+   IMAGE: 15 MB limit.
+   TEXT:  2 MB limit.
+   ============================================================ */
+
+function detectFileType(file) {
+	var name = file.name.toLowerCase();
+	var dot = name.lastIndexOf(".");
+	if (dot < 0) return "unknown";
+	var ext = name.slice(dot);
+
+	var imgExts = [".png", ".jpg", ".jpeg", ".gif", ".webp",
+	               ".bmp", ".tiff", ".tif", ".ico"];
+	var txtExts = [".txt", ".md", ".py", ".js", ".ts", ".c",
+	               ".cpp", ".h", ".hpp", ".java", ".rb", ".sh",
+	               ".yml", ".yaml", ".json", ".toml", ".ini",
+	               ".log", ".tex", ".sql", ".csv", ".xml",
+	               ".html", ".css", ".swift", ".kt", ".scala",
+	               ".pl", ".lua", ".php", ".m", ".mm", ".cs",
+	               ".vb", ".r", ".jl", ".zig", ".ex", ".exs",
+	               ".erl", ".hrl", ".dart", ".groovy", ".gradle",
+	               ".cmake", ".make", ".conf", ".cfg", ".env",
+	               ".dockerfile", ".properties", ".proto", ".thrift"];
+
+	var i;
+	for (i = 0; i < imgExts.length; i++)
+		if (ext === imgExts[i]) return "image";
+	for (i = 0; i < txtExts.length; i++)
+		if (ext === txtExts[i]) return "text";
+
+	return "unknown";
+}
+
+function openFilePicker() {
+	if (ctrl) { setStatus("busy — stop first"); return; }
+	imgfile.value = "";
+	imgfile.click();
+}
+
+function onFilePicked(ev) {
+	var file = ev.target.files && ev.target.files[0];
+	if (!file) return;
+
+	var type = detectFileType(file);
+
+	var maxBytes = (type === "image")
+		? 15 * 1024 * 1024
+		: 2 * 1024 * 1024;
+
+	if (file.size > maxBytes) {
+		setStatus("file: >" + (maxBytes / 1024 / 1024) + " MB");
+		return;
+	}
+
+	if (type === "image") {
+		var reader = new FileReader();
+		reader.onload = function (e) {
+			var img = new Image();
+			img.onload = function () {
+				var maxDim = 768;
+				var w = img.width, h = img.height;
+				if (w > maxDim || h > maxDim) {
+					var scale = maxDim / Math.max(w, h);
+					w = Math.round(w * scale);
+					h = Math.round(h * scale);
+				}
+				var canvas = document.createElement("canvas");
+				canvas.width = w;
+				canvas.height = h;
+				var ctx = canvas.getContext("2d");
+				ctx.drawImage(img, 0, 0, w, h);
+				var dataUrl = canvas.toDataURL("image/png");
+
+				pendingImage = { dataUrl: dataUrl, name: file.name };
+				showImageStrip();
+				setStatus("img: " + file.name);
+			};
+			img.src = e.target.result;
+		};
+		reader.readAsDataURL(file);
+
+	} else if (type === "text") {
+		var reader = new FileReader();
+		reader.onload = function (e) {
+			var text = e.target.result;
+
+			if (text.indexOf("\u0000") !== -1) {
+				setStatus("binary file — not supported");
+				return;
+			}
+
+			var wrapper = "\n```" + file.name + "\n"
+				+ text + "\n```\n";
+			editor.value += wrapper;
+			editor.selectionStart = editor.selectionEnd
+				= editor.value.length;
+			setStatus("appended: " + file.name
+				+ " (" + text.length + " chars)");
+		};
+		reader.readAsText(file);
+	} else {
+		setStatus("unknown file type");
+	}
+}
+
+function showImageStrip() {
+	if (!pendingImage) return;
+	imgthumb.src = pendingImage.dataUrl;
+	imgname.textContent = pendingImage.name;
+	imgstrip.style.display = "flex";
+}
+
+function clearPendingImage() {
+	pendingImage = null;
+	imgstrip.style.display = "none";
+	imgthumb.src = "";
+	imgname.textContent = "";
 }
 
 /* ============================================================
    SECTION J7: MODEL PROBING
-   /props gives the display name (basename of model_path) and n_ctx
-   for the ctx stat and the trim budget. chat_template_caps is logged
-   for the curious. No tag harvesting remains: the server owns
-   templates and stop strings now.
-
-   After props succeed, probeSlot() discovers the server slot.
    ============================================================ */
 function probeSlot(url) {
 	return fetch(url + "/slots")
@@ -703,62 +1027,64 @@ function probeModel(url) {
 		model.value = path.split("/").pop() || "(unknown model)";
 		var dgs = p.default_generation_settings || {};
 		nCtx = dgs.n_ctx || 0;
-		lastServerPromptTokens = 0;
-		turnMarks = [];
-		console.log("chat_template_caps:",
-			JSON.stringify(p.chat_template_caps || {}));
-		stCTX.textContent = "¢ 0" + (nCtx > 0 ? "/" + nCtx : "");
+		if (transcript.length === 0 && !ctrl) {
+			lastServerPromptTokens = 0;
+			turnMarks = [];
+			stCTX.textContent = "¢ 0" + (nCtx > 0 ? "/" + nCtx : "");
+		}
 		return probeSlot(url);
 	})
 	.then(function () {
-		setStatus("ready" + (slotId !== null ? " · slot " + slotId : ""));
+		if (!ctrl) {
+			setStatus("ready · slot " + slotId);
+		}
 	})
 	.catch(function (err) {
 		nCtx = 0;
 		model.value = "(no server)";
-		setStatus("error: " + err.message);
+		if (!ctrl) setStatus("error: " + err.message);
 	});
 }
 
 /* ============================================================
    SECTION J8: GENERATE
-   Guards first, side effects second. One AbortController per
-   generation; the stop button aborts it. The whole conversation
-   goes out as a messages array; the server renders the template,
-   streams delta.reasoning_content and delta.content separately,
-   and stops itself at its own turn-end tokens.
-
-   Context-used (¢) display:
-     At turn start: promptEst anchored to lastServerPromptTokens
-       (server truth) + chars/4 for the new user text. Falls back
-       to estTokens() if the baseline is stale (trim, abort, new).
-     During stream: updateCtxLive() ticks ¢ and TG on every chunk.
-     On final chunk: snaps to exact usage.total_tokens; stores
-       usage.prompt_tokens as the new baseline.
    ============================================================ */
 function generate() {
 	if (ctrl) { setStatus("busy"); return; }
 	var userText = editor.value;
-	if (userText.trim() === "") { setStatus("empty prompt"); return; }
+	if (userText.trim() === "" && !pendingImage) {
+		setStatus("empty prompt"); return;
+	}
 	var url = serverURL();
 	if (!url) { setStatus("no server url"); return; }
 
-	logUser(userText);
-	transcript.push({ role: "user", content: userText });
+	var userContent;
+	if (pendingImage) {
+		userContent = [
+			{ type: "text", text: userText.trim() || "" },
+			{ type: "image_url", image_url: { url: pendingImage.dataUrl } }
+		];
+	} else {
+		userContent = userText;
+	}
+
+	var displayText = userText;
+	if (pendingImage)
+		displayText += " [image: " + pendingImage.name + "]";
+	logUser(displayText);
+
+	transcript.push({ role: "user", content: userContent });
+	clearPendingImage();
 	editor.value = "";
 	beginReply();
 
-	var didTrim = trimTranscript();
+	trimTranscript();
+	promptEst = estTokens();
 
-	if (didTrim || lastServerPromptTokens === 0) {
-		promptEst = estTokens();
-	} else {
-		promptEst = lastServerPromptTokens
-			+ Math.ceil(userText.length / 4);
-	}
-
-	ctrl = new AbortController();
+	var myCtrl = new AbortController();
+	ctrl = myCtrl;
 	setStatus("generating");
+	stPP.textContent = "pp: …";
 
 	var body = {
 		messages: transcript,
@@ -768,7 +1094,7 @@ function generate() {
 		top_p: num("top_p", 0.95),
 		repeat_penalty: num("rp", 1.0)
 	};
-	if (slotId !== null) body.slot_id = slotId;
+	body.slot_id = slotId;
 
 	var np = parseInt($("n_predict").value, 10);
 	if (np > 0) body.max_tokens = np;
@@ -776,7 +1102,7 @@ function generate() {
 	fetch(url + "/v1/chat/completions", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		signal: ctrl.signal,
+		signal: myCtrl.signal,
 		body: JSON.stringify(body)
 	}).then(function (res) {
 		if (!res.ok) throw new Error("server said " + res.status);
@@ -793,11 +1119,18 @@ function generate() {
 					if (ch.finish_reason)
 						finishReason = ch.finish_reason;
 				}
-				if (o.timings)
-					showStats(o.timings.prompt_per_second,
-						o.timings.predicted_per_second);
+				if (o.timings) {
+					var pp = (o.timings.prompt_ms > 0)
+						? o.timings.prompt_n / (o.timings.prompt_ms / 1000)
+						: 0;
+					var tg = (o.timings.predicted_ms > 0)
+						? o.timings.predicted_n / (o.timings.predicted_ms / 1000)
+						: 0;
+					showStats(pp, tg);
+				}
 				if (o.usage) {
 					lastServerPromptTokens = o.usage.prompt_tokens;
+					completionTokens = o.usage.completion_tokens || 0;
 					stCTX.textContent = "¢ " + o.usage.total_tokens
 						+ (nCtx > 0 ? "/" + nCtx : "");
 				}
@@ -811,35 +1144,56 @@ function generate() {
 			})();
 		});
 	}).then(function () {
+		flushDOM();
 		if (reply !== "")
 			transcript.push({ role: "assistant", content: reply });
 		output.appendChild(document.createTextNode("\n"));
-		scrollBottom();
-		setStatus(finishReason === "length" ? "done (limit)" : "done");
+		if (autoScroll) scrollBottom();
+		showMeanTg();
+		if (ctrl === myCtrl)
+			setStatus(finishReason === "length" ? "done (limit)" : "done");
 	}).catch(function (err) {
 		if (err.name === "AbortError") {
+			flushDOM();
 			if (reply !== "")
 				transcript.push({ role: "assistant", content: reply });
 			output.appendChild(document.createTextNode("\n"));
-			scrollBottom();
+			if (autoScroll) scrollBottom();
 			lastServerPromptTokens = 0;
-			setStatus("stopped");
+			showMeanTg();
+			if (ctrl === myCtrl) setStatus("stopped");
 		} else {
-			setStatus("error: " + err.message);
+			flushDOM();
+			if (reply !== "") {
+				transcript.push({ role: "assistant", content: reply });
+				output.appendChild(document.createTextNode("\n"));
+				if (autoScroll) scrollBottom();
+			} else {
+				if (transcript.length > 0
+				 && transcript[transcript.length - 1].role === "user") {
+					transcript.pop();
+					removeLastTurns(1);
+					editor.value = userText;
+					editor.focus();
+				}
+			}
+			if (ctrl === myCtrl) setStatus("error: " + err.message);
 			console.error(err);
 		}
 	}).then(function () {
-		ctrl = null;
+		if (ctrl === myCtrl) ctrl = null;
 	});
 }
 
 /* ============================================================
-   SECTION J9: MAIN — element wiring; must be the LAST statement
+   SECTION J9: MAIN
    ============================================================ */
 function main() {
 	editor   = $("editor");
 	output   = $("output");
 	statusEl = $("status");
+	statustext = $("statustext");
+	trimwarn = $("trimwarn");
 	server   = $("server");
 	model    = $("model");
 	send     = $("send");
@@ -848,13 +1202,32 @@ function main() {
 	stPP     = $("st_pp");
 	stTG     = $("st_tg");
 	stCTX    = $("st_ctx");
+
+	imgstrip = $("imgstrip");
+	imgthumb = $("imgthumb");
+	imgname  = $("imgname");
+	imgclear = $("imgclear");
+	imgfile  = $("imgfile");
+
 	send.onclick    = generate;
 	stopbtn.onclick = stopGen;
 	newbtn.onclick  = newSession;
 	$("btn4").onclick = undoLast;
-	$("btn5").onclick = saveTranscript;
-	$("btn6").onclick = exportImage;
+	$("btn5").onclick = saveLastReply;
+	$("btn6").onclick = openFilePicker;
+	imgfile.addEventListener("change", onFilePicked);
+	imgclear.addEventListener("click", clearPendingImage);
 	editor.addEventListener("keydown", editorKeydown);
+
+	output.addEventListener("scroll", function () {
+		autoScroll = output.scrollHeight - output.scrollTop
+			- output.clientHeight < 40;
+	});
+
+	document.addEventListener("visibilitychange", function () {
+		if (!document.hidden && rafPending) flushDOM();
+	});
+
 	probeModel(serverURL());
 	editor.focus();
 	setStatus("ready");
